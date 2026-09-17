@@ -50,7 +50,7 @@ or in your own cloud folder, not by e-mail, and delete it once imported.
 Debian, Ubuntu, Pop!_OS:
 
 ```
-sudo apt install ./readers-notes_1.1.0_all.deb
+sudo apt install ./readers-notes_1.1.1_all.deb
 ```
 
 Arch, Manjaro:
