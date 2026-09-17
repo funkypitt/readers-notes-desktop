@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Reader's Notes
+Comment=Black-and-white, plain-text notes synced with the phone over WebDAV (kDrive, Nextcloud…)
+Exec=readers-notes
+Icon=readers-notes
+Terminal=false
+Categories=Office;Utility;TextEditor;Qt;
+Keywords=notes;text;webdav;kdrive;nextcloud;
