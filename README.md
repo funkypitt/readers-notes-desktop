@@ -34,12 +34,23 @@ A page open on screen follows the server when you are not typing in it.
 Without a server the notes stay on this computer, in `~/.local/share/readers-notes/`; the
 settings (password included) are in `~/.config/readers-notes/config.json`, readable by you only.
 
+## A new computer
+
+The settings (Ctrl+,) › *export credentials…* writes the accounts (server, folder, username, password) into a JSON file. Reader's
+Calendar, Tasks and Notes can all write into the same file, each in its own section. On the new
+computer, *import credentials…* at the same place brings them back — or, before the first
+window, `readers-notes --import-credentials readers-credentials.json` (and `--export-credentials FILE` the
+other way). The look (colours, text size, font) stays out of it.
+
+The file holds your passwords in clear and is written readable by you only: carry it on a USB key
+or in your own cloud folder, not by e-mail, and delete it once imported.
+
 ## Install
 
 Debian, Ubuntu, Pop!_OS:
 
 ```
-sudo apt install ./readers-notes_1.0.0_all.deb
+sudo apt install ./readers-notes_1.1.0_all.deb
 ```
 
 Arch, Manjaro:

@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), APP)
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 DATA_DIR = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), APP)
@@ -618,6 +618,118 @@ def save_config(cfg):
     os.chmod(tmp, 0o600)
     os.replace(tmp, CONFIG_FILE)
 
+CREDENTIAL_KEYS = ('server', 'folder', 'username', 'password')
+
+
+# ------------------------------------------------------------------------------------------
+# Credentials file: the accounts of every Reader's desktop app in one JSON file, to set up a new
+# computer in one step. One section per app; exporting adds or replaces this app's section and
+# keeps the others, so Calendar, Tasks and Notes can share the same file. It holds passwords
+# and tokens in clear: it is written readable by its owner only.
+# ------------------------------------------------------------------------------------------
+
+CREDENTIALS_FORMAT = "readers-credentials"
+
+_CRED_TR = {
+ "fr": {"import credentials…": "importer les identifiants…", "export credentials…": "exporter les identifiants…", "Reader's credentials (*.json)": "Identifiants Reader's (*.json)",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "identifiants exportés dans %1 — le fichier contient vos mots de passe : gardez-le privé",
+        "credentials imported": "identifiants importés", "not a Reader's credentials file": "ce n'est pas un fichier d'identifiants Reader's", "this file holds nothing for %1": "ce fichier ne contient rien pour %1"},
+ "de": {"import credentials…": "Zugangsdaten importieren…", "export credentials…": "Zugangsdaten exportieren…", "Reader's credentials (*.json)": "Reader's-Zugangsdaten (*.json)",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "Zugangsdaten nach %1 exportiert — die Datei enthält Ihre Passwörter: halten Sie sie privat",
+        "credentials imported": "Zugangsdaten importiert", "not a Reader's credentials file": "keine Reader's-Zugangsdatendatei", "this file holds nothing for %1": "diese Datei enthält nichts für %1"},
+ "es": {"import credentials…": "importar credenciales…", "export credentials…": "exportar credenciales…", "Reader's credentials (*.json)": "Credenciales Reader's (*.json)",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "credenciales exportadas a %1 — el archivo contiene sus contraseñas: manténgalo privado",
+        "credentials imported": "credenciales importadas", "not a Reader's credentials file": "no es un archivo de credenciales Reader's", "this file holds nothing for %1": "este archivo no contiene nada para %1"},
+ "pt": {"import credentials…": "importar credenciais…", "export credentials…": "exportar credenciais…", "Reader's credentials (*.json)": "Credenciais Reader's (*.json)",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "credenciais exportadas para %1 — o ficheiro contém as suas palavras-passe: mantenha-o privado",
+        "credentials imported": "credenciais importadas", "not a Reader's credentials file": "não é um ficheiro de credenciais Reader's", "this file holds nothing for %1": "este ficheiro não contém nada para %1"},
+ "ru": {"import credentials…": "импортировать учётные данные…", "export credentials…": "экспортировать учётные данные…", "Reader's credentials (*.json)": "Учётные данные Reader's (*.json)",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "учётные данные экспортированы в %1 — файл содержит ваши пароли: храните его в тайне",
+        "credentials imported": "учётные данные импортированы", "not a Reader's credentials file": "это не файл учётных данных Reader's", "this file holds nothing for %1": "в этом файле нет ничего для %1"},
+}
+for _l, _d in _CRED_TR.items():
+    _TR.setdefault(_l, {}).update(_d)
+
+
+def export_credentials(cfg, path):
+    """Write this app's accounts into the file at path (created, or merged into an existing
+    credentials file)."""
+    path = os.path.expanduser(path)
+    data = {}
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        with open(path, encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+            except ValueError:
+                raise ValueError(_("not a Reader's credentials file"))
+        if not isinstance(data, dict) or data.get("format") != CREDENTIALS_FORMAT:
+            raise ValueError(_("not a Reader's credentials file"))
+    data.update({"format": CREDENTIALS_FORMAT, "version": 1})
+    data[APP] = {k: cfg[k] for k in CREDENTIAL_KEYS if cfg.get(k) not in (None, "", [], {})}
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+    return path
+
+
+def import_credentials(cfg, path):
+    """Take this app's accounts from a credentials file into cfg (the look and the rest stay)."""
+    with open(os.path.expanduser(path), encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+        except ValueError:
+            raise ValueError(_("not a Reader's credentials file"))
+    if not isinstance(data, dict) or data.get("format") != CREDENTIALS_FORMAT:
+        raise ValueError(_("not a Reader's credentials file"))
+    section = data.get(APP)
+    if not isinstance(section, dict) or not section:
+        raise ValueError(_("this file holds nothing for %1", APP))
+    for k in CREDENTIAL_KEYS:
+        if k in section:
+            cfg[k] = section[k]
+    return cfg
+
+
+def credentials_cli(argv):
+    """readers-… --export-credentials FILE / --import-credentials FILE, without opening a window."""
+    for flag in ("--export-credentials", "--import-credentials"):
+        if flag in argv:
+            i = argv.index(flag)
+            if i + 1 >= len(argv):
+                print(f"{flag} FILE", file=sys.stderr); sys.exit(2)
+            path = argv[i + 1]
+            cfg = load_config()
+            try:
+                if flag == "--export-credentials":
+                    print(_("credentials exported to %1 — the file holds your passwords: keep it private", export_credentials(cfg, path)))
+                else:
+                    save_config(import_credentials(cfg, path)); print(_("credentials imported"))
+            except (OSError, ValueError) as e:
+                print(str(e), file=sys.stderr); sys.exit(1)
+            sys.exit(0)
+
+
+def credentials_dialog(parent, export, cfg):
+    """The file picker for export (merging) or import. Returns (ok, message)."""
+    title = _("export credentials…") if export else _("import credentials…")
+    start = os.path.expanduser("~/readers-credentials.json")
+    if export:
+        path, _f = QtWidgets.QFileDialog.getSaveFileName(parent, title, start, _("Reader's credentials (*.json)"), options=QtWidgets.QFileDialog.DontConfirmOverwrite)
+    else:
+        path, _f = QtWidgets.QFileDialog.getOpenFileName(parent, title, os.path.dirname(start), _("Reader's credentials (*.json)"))
+    if not path:
+        return False, ""
+    try:
+        if export:
+            return True, _("credentials exported to %1 — the file holds your passwords: keep it private", export_credentials(cfg, path))
+        import_credentials(cfg, path)
+        return True, _("credentials imported")
+    except (OSError, ValueError) as e:
+        return False, str(e)
+
 
 def when_label(millis):
     d = datetime.fromtimestamp(millis / 1000)
@@ -774,6 +886,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self.font.setCurrentIndex(max(0, self.font.findData(cfg.get("font", "sans"))))
         form.addRow(_("font"), self.font)
         row = QtWidgets.QHBoxLayout()
+        self.cfg = cfg
+        for text, export in ((_("import credentials…"), False), (_("export credentials…"), True)):
+            b = QtWidgets.QPushButton(text); b.setObjectName("quiet"); b.clicked.connect(lambda _c=False, x=export: self.credentials(x)); row.addWidget(b)
         row.addStretch(1)
         cancel = QtWidgets.QPushButton(_("cancel"))
         cancel.clicked.connect(self.reject)
@@ -783,10 +898,22 @@ class SettingsDialog(QtWidgets.QDialog):
         row.addWidget(cancel)
         row.addWidget(ok)
         outer.addLayout(row)
+        self.message = QtWidgets.QLabel(""); self.message.setObjectName("dim"); self.message.setWordWrap(True); outer.addWidget(self.message)
         credits = QtWidgets.QLabel(f"reader's notes {VERSION} · " + _("Pierre Gallaz · developed with Claude Code"))
         credits.setObjectName("dim")
         outer.addWidget(credits)
         self.resize(680, 500)
+
+    IMPORTED = 2
+
+    def credentials(self, export):
+        # an import lands in a copy: the window decides (a new server means every note goes up again)
+        target = self.cfg if export else dict(self.cfg)
+        ok, message = credentials_dialog(self, export, target)
+        self.message.setText(message)
+        if ok and not export:
+            self.imported_cfg = target
+            self.done(self.IMPORTED)
 
     def values(self):
         return {"server": self.server.text().strip(), "username": self.user.text().strip(),
@@ -944,6 +1071,7 @@ class Main(QtWidgets.QMainWindow):
             QComboBox QAbstractItemView {{ background: {bg}; color: {fg}; selection-background-color: {fg}; selection-color: {bg}; }}
             QPushButton {{ background: {bg}; color: {fg}; border: 1px solid {fg}; padding: 6px 18px; }}
             QPushButton:default {{ background: {fg}; color: {bg}; }}
+            QPushButton#quiet {{ border: none; color: {dim}; padding: 6px 4px; }}
             QToolTip {{ background: {bg}; color: {fg}; border: 1px solid {rule}; }}
         """)
         self.delegate.fg, self.delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
@@ -1224,9 +1352,15 @@ class Main(QtWidgets.QMainWindow):
 
     def setup(self):
         dlg = SettingsDialog(self.cfg, self)
-        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+        result = dlg.exec_()
+        if result == SettingsDialog.IMPORTED:
+            v = {"server": "", "folder": "Notes", "username": "", "password": ""}
+            v.update({k: dlg.imported_cfg[k] for k in CREDENTIAL_KEYS if dlg.imported_cfg.get(k) is not None})
+            v["font"] = self.cfg.get("font", "sans")
+        elif result != QtWidgets.QDialog.Accepted:
             return
-        v = dlg.values()
+        else:
+            v = dlg.values()
         moved = (v["server"].rstrip("/"), v["folder"]) != (self.cfg.get("server", "").rstrip("/"), self.cfg.get("folder", "Notes"))
         if moved and self.cfg.get("server"):
             self.flush()
@@ -1261,6 +1395,7 @@ class Main(QtWidgets.QMainWindow):
 
 
 def main():
+    credentials_cli(sys.argv)
     try:
         locale.setlocale(locale.LC_TIME, "")
     except locale.Error:
