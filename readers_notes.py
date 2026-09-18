@@ -20,10 +20,25 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.1.1"
-CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), APP)
+VERSION = "1.2.0"
+
+
+def _app_dirs():
+    """The settings folder and the notes folder, one place per desktop. Linux keeps the XDG
+    folders it has always used; Windows and macOS put both in the per-user folder of the
+    system, the one place where a password stays out of another account's reach."""
+    if sys.platform == "win32":
+        base = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "Readers Notes")
+        return base, base
+    if sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support/" + APP)
+        return base, base
+    return (os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), APP),
+            os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), APP))
+
+
+CONFIG_DIR, DATA_DIR = _app_dirs()
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-DATA_DIR = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), APP)
 SYNC_MINUTES = 2          # while the window is open
 IDLE_SYNC_SECONDS = 20    # after the last keystroke
 SAVE_MS = 400             # typing pause before the file is written
@@ -202,7 +217,10 @@ def _lang():
         v = os.environ.get(var)
         if v:
             return v[:2].lower()
-    return "en"
+    try:                    # Windows, and macOS opened from the Finder: no LANG at all
+        return QtCore.QLocale.system().name()[:2].lower()
+    except Exception:
+        return "en"
 
 
 _LANG = _lang()
@@ -1400,6 +1418,16 @@ class Main(QtWidgets.QMainWindow):
         super().closeEvent(e)
 
 
+def _icon():
+    """The window icon: beside the script, or inside the Windows and macOS build."""
+    here = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    for name in (APP + ".png", os.path.join("packaging", APP + ".png")):
+        path = os.path.join(here, name)
+        if os.path.exists(path):
+            return QtGui.QIcon(path)
+    return QtGui.QIcon()
+
+
 def main():
     credentials_cli(sys.argv)
     try:
@@ -1409,6 +1437,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("reader's notes")
     app.setDesktopFileName(APP)
+    app.setWindowIcon(_icon())
     w = Main()
     w.show()
     sys.exit(app.exec_())
