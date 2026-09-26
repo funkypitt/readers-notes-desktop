@@ -91,3 +91,13 @@ artifacts. The icons come from `packaging/readers-notes.png` (`.ico` beside it, 
 the runner).
 
 Single file, PyQt5 + requests, no WebDAV library: PROPFIND, GET, PUT, DELETE and MKCOL. MIT.
+
+## Folders (1.3.0, optional, same as the phone 1.6.0)
+
+Settings: « ranger les notes en dossiers » (`cfg["folders"]`). On: the left pane starts on the
+folders (`place == FOLDERS`): « all notes », each folder with a small glyph and its count, « + new
+folder »; a click opens one (the « ← … » line above the find field goes back); a note's
+right-click has « move to »; a folder's: rename, delete. New notes go into the open folder.
+Store/sync: `folder`/`remoteFolder` per note, `folders`/`goneFolders` in notes.json; sync keyed
+"folder/name" — identical rules to the phone (see readers-notes docs/NOTES.md). Headless test:
+`XDG_CONFIG_HOME=… XDG_DATA_HOME=… QT_QPA_PLATFORM=offscreen` and a wsgidav on 127.0.0.1:8085.
