@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 
 def _app_dirs():
@@ -56,11 +56,11 @@ _TR = {
   "rename…": "renommer…",
   "new name of the folder": "nouveau nom du dossier",
   "delete the folder": "supprimer le dossier",
-  "Delete the folder “%1”? Its notes stay, in all notes.": "Supprimer le dossier « %1 » ? Ses notes restent, dans toutes les notes.",
+  "Delete the folder “%1”? Its notes stay in “all notes”.": "Supprimer le dossier « %1 » ? Ses notes restent dans « toutes les notes ».",
   "move to": "déplacer vers",
   "no folder": "aucun dossier",
   "file the notes in folders": "ranger les notes en dossiers",
-  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone.": "Dossiers : la liste commence par eux, « toutes les notes » d'abord. Sur le serveur, chaque dossier est un sous-dossier du dossier des notes, comme sur le téléphone.",
+  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Dossiers : la liste commence par eux, « toutes les notes » d'abord. Sur le serveur, chaque dossier est un sous-dossier du dossier des notes.",
   "folders": "dossiers",
   "+ new note": "+ nouvelle note",
   "new note": "nouvelle note",
@@ -90,22 +90,29 @@ _TR = {
   "wrong username or password": "identifiant ou mot de passe incorrect",
   "cannot reach the server": "serveur injoignable",
   "not a WebDAV folder at this address": "pas de dossier WebDAV à cette adresse",
-  "A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Un dossier WebDAV garde les notes à jour avec le téléphone : les mêmes serveur, dossier et identifiants que dans l'app Android. kDrive : serveur https://ID.connect.kdrive.infomaniak.com (l'ID est le nombre dans l'adresse web de kDrive), votre identifiant Infomaniak et un mot de passe d'application si la double authentification est active. Nextcloud et tout serveur WebDAV fonctionnent de la même façon.",
+  "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Un dossier WebDAV garde les notes à jour sur vos autres appareils. kDrive : serveur https://ID.connect.kdrive.infomaniak.com (l'ID est le nombre dans l'adresse web de kDrive), votre identifiant Infomaniak et un mot de passe d'application si la double authentification est active. Nextcloud et tout serveur WebDAV fonctionnent de la même façon.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · développé avec Claude Code",
+  "server copy": "copie du serveur",
+  "the server refused: %1": "le serveur a refusé : %1",
+  "sync failed: %1": "échec de la synchronisation : %1",
+  "cannot use this file: %1": "impossible d'utiliser ce fichier : %1",
+  "sans-serif": "sans empattement",
+  "serif": "avec empattement",
+  "mono": "chasse fixe",
  },
  "de": {
-  "all notes": "alle notizen",
-  "+ new folder": "+ neuer ordner",
-  "name of the new folder": "name des neuen ordners",
+  "all notes": "alle Notizen",
+  "+ new folder": "+ neuer Ordner",
+  "name of the new folder": "Name des neuen Ordners",
   "rename…": "umbenennen…",
-  "new name of the folder": "neuer name des ordners",
-  "delete the folder": "ordner löschen",
-  "Delete the folder “%1”? Its notes stay, in all notes.": "Den ordner „%1“ löschen? Seine notizen bleiben, in alle notizen.",
+  "new name of the folder": "neuer Name des Ordners",
+  "delete the folder": "Ordner löschen",
+  "Delete the folder “%1”? Its notes stay in “all notes”.": "Den Ordner „%1“ löschen? Seine Notizen bleiben unter „alle Notizen“.",
   "move to": "verschieben nach",
-  "no folder": "kein ordner",
-  "file the notes in folders": "notizen in ordnern ablegen",
-  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone.": "Ordner: die liste beginnt mit ihnen, « alle notizen » zuerst. Auf dem server ist jeder ordner ein unterordner des notizordners, wie auf dem telefon.",
-  "folders": "ordner",
+  "no folder": "kein Ordner",
+  "file the notes in folders": "Notizen in Ordnern ablegen",
+  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Ordner: Die Liste beginnt mit ihnen, « alle Notizen » zuerst. Auf dem Server ist jeder Ordner ein Unterordner des Notizordners.",
+  "folders": "Ordner",
   "+ new note": "+ neue Notiz",
   "new note": "neue Notiz",
   "untitled": "ohne Titel",
@@ -134,8 +141,15 @@ _TR = {
   "wrong username or password": "falscher Benutzername oder falsches Passwort",
   "cannot reach the server": "Server nicht erreichbar",
   "not a WebDAV folder at this address": "kein WebDAV-Ordner unter dieser Adresse",
-  "A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Ein WebDAV-Ordner hält die Notizen mit dem Telefon gleich: derselbe Server, Ordner und Login wie in der Android-App. kDrive: Server https://ID.connect.kdrive.infomaniak.com (die ID ist die Zahl in der kDrive-Webadresse), Ihr Infomaniak-Login und bei Zwei-Faktor-Anmeldung ein App-Passwort. Nextcloud und jeder WebDAV-Server funktionieren genauso.",
+  "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Ein WebDAV-Ordner hält die Notizen auf allen Geräten gleich. kDrive: Server https://ID.connect.kdrive.infomaniak.com (die ID ist die Zahl in der kDrive-Webadresse), Ihr Infomaniak-Login und bei Zwei-Faktor-Anmeldung ein App-Passwort. Nextcloud und jeder WebDAV-Server funktionieren genauso.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · entwickelt mit Claude Code",
+  "server copy": "Serverkopie",
+  "the server refused: %1": "der Server hat abgelehnt: %1",
+  "sync failed: %1": "Synchronisierung fehlgeschlagen: %1",
+  "cannot use this file: %1": "diese Datei ist nicht nutzbar: %1",
+  "sans-serif": "serifenlos",
+  "serif": "mit Serifen",
+  "mono": "Festbreite",
  },
  "es": {
   "all notes": "todas las notas",
@@ -144,11 +158,11 @@ _TR = {
   "rename…": "cambiar el nombre…",
   "new name of the folder": "nuevo nombre de la carpeta",
   "delete the folder": "eliminar la carpeta",
-  "Delete the folder “%1”? Its notes stay, in all notes.": "¿Eliminar la carpeta «%1»? Sus notas se quedan, en todas las notas.",
+  "Delete the folder “%1”? Its notes stay in “all notes”.": "¿Eliminar la carpeta «%1»? Sus notas se quedan en «todas las notas».",
   "move to": "mover a",
   "no folder": "sin carpeta",
   "file the notes in folders": "ordenar las notas en carpetas",
-  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone.": "Carpetas: la lista empieza por ellas, « todas las notas » primero. En el servidor, cada carpeta es una subcarpeta de la carpeta de notas, como en el teléfono.",
+  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Carpetas: la lista empieza por ellas, « todas las notas » primero. En el servidor, cada carpeta es una subcarpeta de la carpeta de notas.",
   "folders": "carpetas",
   "+ new note": "+ nueva nota",
   "new note": "nueva nota",
@@ -178,8 +192,15 @@ _TR = {
   "wrong username or password": "usuario o contraseña incorrectos",
   "cannot reach the server": "no se puede contactar con el servidor",
   "not a WebDAV folder at this address": "no hay una carpeta WebDAV en esta dirección",
-  "A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Una carpeta WebDAV mantiene las notas al día con tu teléfono: el mismo servidor, carpeta y usuario que en la app Android. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (el ID es el número de la dirección web de kDrive), tu usuario de Infomaniak y una contraseña de aplicación si tienes la verificación en dos pasos. Nextcloud y cualquier servidor WebDAV funcionan igual.",
+  "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Una carpeta WebDAV mantiene las notas al día en tus otros dispositivos. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (el ID es el número de la dirección web de kDrive), tu usuario de Infomaniak y una contraseña de aplicación si tienes la verificación en dos pasos. Nextcloud y cualquier servidor WebDAV funcionan igual.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · desarrollado con Claude Code",
+  "server copy": "copia del servidor",
+  "the server refused: %1": "el servidor lo rechazó: %1",
+  "sync failed: %1": "error de sincronización: %1",
+  "cannot use this file: %1": "no se puede usar este archivo: %1",
+  "sans-serif": "sin serifa",
+  "serif": "con serifa",
+  "mono": "monoespaciada",
  },
  "pt": {
   "all notes": "todas as notas",
@@ -187,12 +208,12 @@ _TR = {
   "name of the new folder": "nome da nova pasta",
   "rename…": "mudar o nome…",
   "new name of the folder": "novo nome da pasta",
-  "delete the folder": "eliminar a pasta",
-  "Delete the folder “%1”? Its notes stay, in all notes.": "Eliminar a pasta «%1»? As notas ficam, em todas as notas.",
+  "delete the folder": "apagar a pasta",
+  "Delete the folder “%1”? Its notes stay in “all notes”.": "Apagar a pasta «%1»? As notas ficam em «todas as notas».",
   "move to": "mover para",
   "no folder": "sem pasta",
   "file the notes in folders": "arrumar as notas em pastas",
-  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone.": "Pastas: a lista começa por elas, « todas as notas » primeiro. No servidor, cada pasta é uma subpasta da pasta das notas, como no telemóvel.",
+  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Pastas: a lista começa por elas, « todas as notas » primeiro. No servidor, cada pasta é uma subpasta da pasta das notas.",
   "folders": "pastas",
   "+ new note": "+ nova nota",
   "new note": "nova nota",
@@ -222,8 +243,15 @@ _TR = {
   "wrong username or password": "utilizador ou palavra-passe incorretos",
   "cannot reach the server": "servidor inacessível",
   "not a WebDAV folder at this address": "nenhuma pasta WebDAV neste endereço",
-  "A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Uma pasta WebDAV mantém as notas em dia com o telefone: o mesmo servidor, pasta e utilizador que na app Android. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (o ID é o número no endereço web do kDrive), o seu utilizador Infomaniak e uma palavra-passe de aplicação se tiver a verificação em dois passos. O Nextcloud e qualquer servidor WebDAV funcionam da mesma forma.",
+  "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Uma pasta WebDAV mantém as notas em dia nos seus outros aparelhos. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (o ID é o número no endereço web do kDrive), o seu utilizador Infomaniak e uma palavra-passe de aplicação se tiver a verificação em dois passos. O Nextcloud e qualquer servidor WebDAV funcionam da mesma forma.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · desenvolvido com Claude Code",
+  "server copy": "cópia do servidor",
+  "the server refused: %1": "o servidor recusou: %1",
+  "sync failed: %1": "a sincronização falhou: %1",
+  "cannot use this file: %1": "não é possível usar este ficheiro: %1",
+  "sans-serif": "sem serifa",
+  "serif": "com serifa",
+  "mono": "monoespaçada",
  },
  "ru": {
   "all notes": "все заметки",
@@ -232,11 +260,11 @@ _TR = {
   "rename…": "переименовать…",
   "new name of the folder": "новое название папки",
   "delete the folder": "удалить папку",
-  "Delete the folder “%1”? Its notes stay, in all notes.": "Удалить папку «%1»? Заметки останутся во «всех заметках».",
+  "Delete the folder “%1”? Its notes stay in “all notes”.": "Удалить папку «%1»? Заметки останутся во «всех заметках».",
   "move to": "переместить в",
   "no folder": "без папки",
   "file the notes in folders": "раскладывать заметки по папкам",
-  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone.": "Папки: список начинается с них, сначала «все заметки». На сервере каждая папка — подпапка папки заметок, как на телефоне.",
+  "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Папки: список начинается с них, сначала «все заметки». На сервере каждая папка — подпапка папки заметок.",
   "folders": "папки",
   "+ new note": "+ новая заметка",
   "new note": "новая заметка",
@@ -266,8 +294,15 @@ _TR = {
   "wrong username or password": "неверное имя пользователя или пароль",
   "cannot reach the server": "сервер недоступен",
   "not a WebDAV folder at this address": "по этому адресу нет папки WebDAV",
-  "A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Папка WebDAV держит заметки в одном состоянии с телефоном: тот же сервер, папка и логин, что и в приложении Android. kDrive: сервер https://ID.connect.kdrive.infomaniak.com (ID — число в веб-адресе kDrive), ваш логин Infomaniak и пароль приложения при двухфакторной аутентификации. Nextcloud и любой WebDAV-сервер работают так же.",
+  "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Папка WebDAV держит заметки в одном состоянии на всех устройствах. kDrive: сервер https://ID.connect.kdrive.infomaniak.com (ID — число в веб-адресе kDrive), ваш логин Infomaniak и пароль приложения при двухфакторной аутентификации. Nextcloud и любой WebDAV-сервер работают так же.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · разработано с Claude Code",
+  "server copy": "копия с сервера",
+  "the server refused: %1": "сервер отказал: %1",
+  "sync failed: %1": "ошибка синхронизации: %1",
+  "cannot use this file: %1": "не удаётся использовать этот файл: %1",
+  "sans-serif": "без засечек",
+  "serif": "с засечками",
+  "mono": "моноширинный",
  },
 }
 
@@ -326,7 +361,7 @@ def file_name_of(text):
 
 def server_copy_text(text):
     lines = text.split("\n")
-    return lines[0] + " (server copy)" + "\n" + "\n".join(lines[1:])
+    return lines[0] + " (" + _("server copy") + ")" + "\n" + "\n".join(lines[1:])
 
 
 def _new_id():
@@ -642,7 +677,7 @@ class WebDav:
         if r.status_code == 401:
             raise WebDavError(_("wrong username or password"))
         if r.status_code >= 400 and r.status_code not in allow:
-            raise WebDavError(f"{method}: HTTP {r.status_code}")
+            raise WebDavError(_("the server refused: %1", f"{method} HTTP {r.status_code}"))
         return r
 
     @staticmethod
@@ -883,7 +918,7 @@ _CRED_TR = {
         "credentials exported to %1 — the file holds your passwords: keep it private": "Zugangsdaten nach %1 exportiert — die Datei enthält Ihre Passwörter: halten Sie sie privat",
         "credentials imported": "Zugangsdaten importiert", "server and login taken from %1": "Server und Anmeldung aus %1 übernommen", "not a Reader's credentials file": "keine Reader's-Zugangsdatendatei", "this file holds nothing for %1": "diese Datei enthält nichts für %1"},
  "es": {"import credentials…": "importar credenciales…", "export credentials…": "exportar credenciales…", "Reader's credentials (*.json)": "Credenciales Reader's (*.json)",
-        "credentials exported to %1 — the file holds your passwords: keep it private": "credenciales exportadas a %1 — el archivo contiene sus contraseñas: manténgalo privado",
+        "credentials exported to %1 — the file holds your passwords: keep it private": "credenciales exportadas a %1 — el archivo contiene tus contraseñas: mantenlo privado",
         "credentials imported": "credenciales importadas", "server and login taken from %1": "servidor y usuario tomados de %1", "not a Reader's credentials file": "no es un archivo de credenciales Reader's", "this file holds nothing for %1": "este archivo no contiene nada para %1"},
  "pt": {"import credentials…": "importar credenciais…", "export credentials…": "exportar credenciais…", "Reader's credentials (*.json)": "Credenciais Reader's (*.json)",
         "credentials exported to %1 — the file holds your passwords: keep it private": "credenciais exportadas para %1 — o ficheiro contém as suas palavras-passe: mantenha-o privado",
@@ -958,8 +993,10 @@ def credentials_cli(argv):
                     print(_("credentials exported to %1 — the file holds your passwords: keep it private", export_credentials(cfg, path)))
                 else:
                     message = import_credentials(cfg, path); save_config(cfg); print(message)
-            except (OSError, ValueError) as e:
+            except ValueError as e:
                 print(str(e), file=sys.stderr); sys.exit(1)
+            except OSError as e:
+                print(_("cannot use this file: %1", e.strerror or e), file=sys.stderr); sys.exit(1)
             sys.exit(0)
 
 
@@ -977,8 +1014,10 @@ def credentials_dialog(parent, export, cfg):
         if export:
             return True, _("credentials exported to %1 — the file holds your passwords: keep it private", export_credentials(cfg, path))
         return True, import_credentials(cfg, path)
-    except (OSError, ValueError) as e:
+    except ValueError as e:      # already a translated sentence
         return False, str(e)
+    except OSError as e:
+        return False, _("cannot use this file: %1", e.strerror or e)
 
 
 def when_label(millis):
@@ -1007,8 +1046,10 @@ class Worker(QtCore.QObject):
     def run(self):
         try:
             self.done.emit(self.fn())
-        except Exception as e:  # network, auth, disk — all end up as one line of text
+        except WebDavError as e:  # already a translated sentence
             self.failed.emit(str(e))
+        except Exception as e:  # disk and the rest — one line of text, led by a translated phrase
+            self.failed.emit(_("sync failed: %1", e))
 
 
 class Clickable(QtWidgets.QLabel):
@@ -1157,7 +1198,7 @@ class SettingsDialog(QtWidgets.QDialog):
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(22, 18, 22, 18)
         outer.setSpacing(16)
-        intro = QtWidgets.QLabel(_("A WebDAV folder keeps the notes in step with your phone: the same server, folder and login as in the Android app. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way."))
+        intro = QtWidgets.QLabel(_("A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way."))
         intro.setObjectName("dim")
         intro.setWordWrap(True)
         outer.addWidget(intro)
@@ -1175,14 +1216,14 @@ class SettingsDialog(QtWidgets.QDialog):
         form.addRow(_("password"), self.password)
         form.addRow(_("folder on the server"), self.folder)
         self.font = QtWidgets.QComboBox()
-        for key, label in (("sans", "sans-serif"), ("serif", "serif"), ("mono", "mono")):
+        for key, label in (("sans", _("sans-serif")), ("serif", _("serif")), ("mono", _("mono"))):
             self.font.addItem(label, key)
         self.font.setCurrentIndex(max(0, self.font.findData(cfg.get("font", "sans"))))
         form.addRow(_("font"), self.font)
         self.folders = QtWidgets.QCheckBox(_("file the notes in folders"))
         self.folders.setChecked(bool(cfg.get("folders", False)))
         form.addRow(_("folders"), self.folders)
-        hint = QtWidgets.QLabel(_("Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder, as on the phone."))
+        hint = QtWidgets.QLabel(_("Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder."))
         hint.setObjectName("dim"); hint.setWordWrap(True)
         form.addRow("", hint)
         row = QtWidgets.QHBoxLayout()
@@ -1523,7 +1564,7 @@ class Main(QtWidgets.QMainWindow):
             self.refresh_list(); self.sync()
 
     def delete_folder(self, name):
-        if QtWidgets.QMessageBox.question(self, "reader's notes", _("Delete the folder “%1”? Its notes stay, in all notes.", name)) == QtWidgets.QMessageBox.Yes:
+        if QtWidgets.QMessageBox.question(self, "reader's notes", _("Delete the folder “%1”? Its notes stay in “all notes”.", name)) == QtWidgets.QMessageBox.Yes:
             self.store.delete_folder(name)
             self.refresh_list(); self.sync()
 
@@ -1802,6 +1843,11 @@ def main():
     app.setApplicationName("reader's notes")
     app.setDesktopFileName(APP)
     app.setWindowIcon(_icon())
+    # Qt's own buttons (Yes/No, OK/Cancel in the prompts, the file picker) in the app's language
+    qt_tr = QtCore.QTranslator(app)
+    qt_dir = QtCore.QLibraryInfo.location(QtCore.QLibraryInfo.TranslationsPath)
+    if any(qt_tr.load("qtbase_" + name, qt_dir) for name in (_LANG, {"pt": "pt_BR"}.get(_LANG, _LANG))):
+        app.installTranslator(qt_tr)
     w = Main()
     w.show()
     sys.exit(app.exec_())
