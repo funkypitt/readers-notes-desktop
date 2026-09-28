@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 
 
 def _app_dirs():
@@ -1191,11 +1191,68 @@ class Editor(QtWidgets.QTextEdit):
         self.setUndoRedoEnabled(True)
 
 
+def scrolling_page(window):
+    """The widget a window's content is laid on. It scrolls when the screen is too small for it."""
+    area = QtWidgets.QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QtWidgets.QFrame.NoFrame)
+    page = QtWidgets.QWidget()
+    area.setWidget(page)
+    box = QtWidgets.QVBoxLayout(window)
+    box.setContentsMargins(0, 0, 0, 0)
+    box.addWidget(area)
+    return page
+
+
+class Fit(QtCore.QObject):
+    """A window as tall as its content asks for at its width, now and when a message comes.
+    Left to itself Qt counts a wrapped text for fewer lines than it takes, and a height given
+    in pixels squeezes the fields once the text is larger or longer than the day it was chosen.
+    The width is in characters, so it follows the text size; the screen is the limit."""
+
+    def __init__(self, window, chars, page=None):
+        super().__init__(window)
+        self.window, self.chars, self.page = window, chars, page or window
+        window.installEventFilter(self)
+        self.page.installEventFilter(self)
+        self.fit()
+
+    def eventFilter(self, obj, event):
+        kind = event.type()
+        if (obj is self.window and kind == QtCore.QEvent.Show) or (obj is self.page and kind == QtCore.QEvent.LayoutRequest):
+            self.fit()
+        return False
+
+    def fit(self):
+        w, lay = self.window, self.page.layout()
+        w.ensurePolished()
+        for child in w.findChildren(QtWidgets.QWidget):
+            child.ensurePolished()      # the sizes of the style sheet, known before the first show
+        lay.invalidate()
+        shown = w.isVisible()
+        screen = QtWidgets.QApplication.screenAt(w.geometry().center()) if shown else None
+        room = (screen or QtWidgets.QApplication.primaryScreen()).availableGeometry().size() - QtCore.QSize(40, 80)
+        width = max(self.chars * w.fontMetrics().averageCharWidth(), lay.totalMinimumSize().width(), w.width() if shown else 0)
+        need = lay.totalHeightForWidth(width) if lay.hasHeightForWidth() else lay.totalSizeHint().height()
+        height = min(need, max(room.height(), 240))
+        area = w.findChild(QtWidgets.QScrollArea)
+        if need > height and area and not shown:
+            width += area.verticalScrollBar().sizeHint().width()      # the page keeps its width beside the scroll bar
+        width = min(width, max(room.width(), 320))
+        if not shown:
+            w.setMinimumSize(width, height)
+            w.resize(width, height)
+        elif height > w.height():
+            w.setMinimumHeight(height)
+            w.resize(w.width(), height)
+
+
 class SettingsDialog(QtWidgets.QDialog):
     def __init__(self, cfg, parent=None):
         super().__init__(parent)
         self.setWindowTitle("reader's notes")
-        outer = QtWidgets.QVBoxLayout(self)
+        page = scrolling_page(self)
+        outer = QtWidgets.QVBoxLayout(page)
         outer.setContentsMargins(22, 18, 22, 18)
         outer.setSpacing(16)
         intro = QtWidgets.QLabel(_("A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way."))
@@ -1229,9 +1286,10 @@ class SettingsDialog(QtWidgets.QDialog):
         row = QtWidgets.QHBoxLayout()
         self.cfg = cfg
         for text, export in ((_("import credentials…"), False), (_("export credentials…"), True)):
-            b = QtWidgets.QPushButton(text); b.setObjectName("quiet"); b.clicked.connect(lambda _c=False, x=export: self.credentials(x)); row.addWidget(b)
+            b = QtWidgets.QPushButton(text); b.setObjectName("quiet"); b.setAutoDefault(False)
+            b.clicked.connect(lambda _c=False, x=export: self.credentials(x)); row.addWidget(b)
         row.addStretch(1)
-        cancel = QtWidgets.QPushButton(_("cancel"))
+        cancel = QtWidgets.QPushButton(_("cancel")); cancel.setAutoDefault(False)
         cancel.clicked.connect(self.reject)
         ok = QtWidgets.QPushButton(_("save"))
         ok.setDefault(True)
@@ -1243,7 +1301,7 @@ class SettingsDialog(QtWidgets.QDialog):
         credits = QtWidgets.QLabel(f"reader's notes {VERSION} · " + _("Pierre Gallaz · developed with Claude Code"))
         credits.setObjectName("dim")
         outer.addWidget(credits)
-        self.resize(680, 500)
+        Fit(self, 76, page)
 
     IMPORTED = 2
 
