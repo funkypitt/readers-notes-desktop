@@ -101,3 +101,13 @@ right-click has « move to »; a folder's: rename, delete. New notes go into the
 Store/sync: `folder`/`remoteFolder` per note, `folders`/`goneFolders` in notes.json; sync keyed
 "folder/name" — identical rules to the phone (see readers-notes docs/NOTES.md). Headless test:
 `XDG_CONFIG_HOME=… XDG_DATA_HOME=… QT_QPA_PLATFORM=offscreen` and a wsgidav on 127.0.0.1:8085.
+
+## Another server or folder (1.3.3, same as the phone 1.6.2)
+
+notes.json remembers the folder URL the notes were last synced with (`place`). `sync_run` calls
+`store.syncing_with(root)` once the place has answered: at another place than last time, however
+it was set (the settings, `--import-credentials`, the configuration file edited by hand), every
+note is treated as never synced, so all are kept and uploaded and none is taken for deleted there.
+A never-synced note whose file is already there with the same text takes that file instead of a
+second « … (2).txt » (a place left and come back to, or a computer set up next to the phone).
+`tests/test_sync.py` runs the sync against a server kept in memory.

@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.3.2"
+VERSION = "1.3.3"
 
 
 def _app_dirs():
@@ -393,11 +393,13 @@ class Store:
         self.folders = data.get("folders", [])
         # deleted or renamed here, to remove from the server once empty there
         self.gone_folders = data.get("goneFolders", [])
+        # the folder URL the notes were last synced with; None before any sync
+        self.place = data.get("place")
 
     def _save_index(self):
         tmp = self.index_file + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"notes": self.notes, "folders": self.folders, "goneFolders": self.gone_folders}, f, indent=2, ensure_ascii=False)
+            json.dump({"notes": self.notes, "folders": self.folders, "goneFolders": self.gone_folders, "place": self.place}, f, indent=2, ensure_ascii=False)
         os.replace(tmp, self.index_file)
         if self.on_change:
             self.on_change()
@@ -639,6 +641,19 @@ class Store:
             self.gone_folders = []
             self._save_index()
 
+    def syncing_with(self, place):
+        """The sync is about to run with `place` (the folder URL). Another server or folder than
+        last time, however it was set (the settings, a credentials file, the configuration file):
+        what is remembered of the old one says nothing about this one, and a note missing there
+        was not deleted there. So every note goes up again as new, and none is removed from here."""
+        with self.lock:
+            if self.place == place:
+                return
+            if self.place is not None:
+                self.forget_server()
+            self.place = place
+            self._save_index()
+
 
 # ------------------------------------------------------------------------------------------
 # WebDAV: PROPFIND, GET, PUT, DELETE, MKCOL — the five requests a notes folder needs
@@ -773,6 +788,8 @@ def sync_run(store, cfg, timeout=30):
         return dir_url(folder) + encode_segment(name)
 
     entries = dav.list(root)
+    # another server or folder than last time (and it answers): nothing here is taken for deleted there
+    store.syncing_with(root)
     remote = {f["name"]: f for f in entries if not f["dir"] and _is_note(f["name"])}
     with_folders = bool(cfg.get("folders")) or store.uses_folders()
     server_dirs = {f["name"] for f in entries if f["dir"] and not f["name"].startswith(".")} if with_folders else set()
@@ -819,6 +836,12 @@ def sync_run(store, cfg, timeout=30):
             folder = note.get("folder", "") if with_folders else ""
             name = file_name_of(text)
             target = _key(folder, name)
+            # never synced with this place, and the very same note is there already (a place left
+            # and come back to, or a computer set up next to the phone): it is that file, not a second one
+            if here is None and target not in taken and target in remote and (dav.get(url(folder, name), allow_missing=True) or "").strip() == text.strip():
+                store.mark_synced(note["id"], name, remote[target]["etag"], text, folder)
+                taken.add(target)
+                continue
             if target != here:
                 # a fresh name must not collide with another server file
                 i, base = 2, name[:-4]
@@ -992,6 +1015,10 @@ def credentials_cli(argv):
                 if flag == "--export-credentials":
                     print(_("credentials exported to %1 — the file holds your passwords: keep it private", export_credentials(cfg, path)))
                 else:
+                    if cfg.get("server"):   # the place the notes are synced with, before it changes
+                        store = Store(DATA_DIR)
+                        if store.place is None:
+                            store.syncing_with(folder_url(cfg))
                     message = import_credentials(cfg, path); save_config(cfg); print(message)
             except ValueError as e:
                 print(str(e), file=sys.stderr); sys.exit(1)
@@ -1327,6 +1354,9 @@ class Main(QtWidgets.QMainWindow):
         super().__init__()
         self.cfg = load_config()
         self.store = store or Store(DATA_DIR)
+        # notes synced before the store remembered where: it was with the server and folder set at this start
+        if self.cfg.get("server") and self.store.place is None:
+            self.store.syncing_with(folder_url(self.cfg))
         self.store.on_change = self.store_changed.emit     # from any thread: queued to the UI
         self.threads = []
         self.current = None      # id of the note in the editor
