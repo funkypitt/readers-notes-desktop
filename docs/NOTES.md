@@ -111,3 +111,14 @@ note is treated as never synced, so all are kept and uploaded and none is taken 
 A never-synced note whose file is already there with the same text takes that file instead of a
 second « … (2).txt » (a place left and come back to, or a computer set up next to the phone).
 `tests/test_sync.py` runs the sync against a server kept in memory.
+
+## 1.3.4 (2026-10-05): the settings window fitted itself without end
+
+`Fit.fit()` invalidated the layout at every call, and Qt answers an invalidation with a
+LayoutRequest, which `Fit` took for a text change and answered with another fit: thousands of
+fits a second for as long as the window was open. The main thread never rested, and on Ubuntu
+24.04 (GNOME on Wayland, Qt's GTK file dialog drawn in the same process) the file dialog of
+« export credentials… » was a window without content: in Alt-Tab, focused, never drawn. Seen
+in a headless GNOME Shell 46 run on 2026-10-05 and gone with the fix. The layout is now
+invalidated only before the first show (the sizes cached before the style sheet applied), and
+a LayoutRequest fits the window only once it is shown: Qt has refreshed the sizes by then.
