@@ -1,7 +1,7 @@
 # Maintainer: funkypitt <pierregallaz@gmail.com>
 # Arch / Manjaro: cd packaging && makepkg -si
 pkgname=readers-notes
-pkgver=1.3.4
+pkgver=1.3.5
 pkgrel=1
 pkgdesc="Black-and-white, plain-text notes synced with the phone over WebDAV (kDrive, Nextcloud…)"
 arch=('any')
@@ -14,6 +14,7 @@ sha256sums=('SKIP')
 package() {
   cd "$srcdir/readers-notes-desktop-$pkgver"
   install -Dm755 readers_notes.py "$pkgdir/usr/lib/readers-notes/readers_notes.py"
+  for f in packaging/fonts/*; do install -Dm644 "$f" "$pkgdir/usr/lib/readers-notes/fonts/$(basename "$f")"; done
   install -Dm755 /dev/stdin "$pkgdir/usr/bin/readers-notes" <<'SH'
 #!/bin/sh
 exec python3 /usr/lib/readers-notes/readers_notes.py "$@"

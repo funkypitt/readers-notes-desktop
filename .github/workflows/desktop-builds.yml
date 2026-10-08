@@ -60,6 +60,7 @@ jobs:
             --name "Readers Notes" \
             --icon packaging/readers-notes.ico \
             --add-data "packaging/readers-notes.png;." \
+            --add-data "packaging/fonts;fonts" \
             readers_notes.py
           mkdir -p out
           mv "dist/Readers Notes.exe" "out/readers-notes_${VERSION}_windows_x64.exe"
@@ -83,6 +84,7 @@ jobs:
             --icon packaging/readers-notes.icns \
             --osx-bundle-identifier ch.gallaz.readersnotes \
             --add-data "packaging/readers-notes.png:." \
+            --add-data "packaging/fonts:fonts" \
             readers_notes.py
           # Ad hoc signature: on Apple Silicon an unsigned binary does not start at all.
           codesign --force --deep --sign - "dist/Readers Notes.app"
