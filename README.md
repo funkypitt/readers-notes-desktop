@@ -12,6 +12,7 @@ desktop twin. No formatting, no folders, no account with the app.
 - Sync: enter the same server, username, password and folder (`Notes` by default) as on the phone, in the settings (Ctrl+,). kDrive: `https://<ID>.connect.kdrive.infomaniak.com`.
 - It syncs when the window opens, every two minutes, 20 seconds after you stop typing, when you change note or window, on quitting, and on F5. The status line says what happened.
 - A note changed on both sides keeps the server's text as a second note ("… (server copy)"). Nothing is overwritten without a copy.
+- A book's highlights, written by Reader's Books into the `Reader's Books` subfolder of the notes folder, show here as notes to read and copy from, under « books » when the notes are filed in folders. They follow the server and are never changed from here.
 - Without a server the notes stay on this computer: `~/.local/share/readers-notes/` on Linux, settings in `~/.config/readers-notes/config.json`, readable by you only.
 - A new computer: *export credentials…* writes a JSON file that Reader's Calendar, Tasks and Notes share; *import credentials…* reads it back. It holds passwords in clear: delete it once imported.
 - Ctrl+T flips white on black / black on white; Ctrl+= and Ctrl+- change the text size.

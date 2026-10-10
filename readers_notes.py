@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.3.5"
+VERSION = "1.4.0"
 
 
 def _app_dirs():
@@ -42,6 +42,9 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 SYNC_MINUTES = 2          # while the window is open
 IDLE_SYNC_SECONDS = 20    # after the last keystroke
 SAVE_MS = 400             # typing pause before the file is written
+# Reader's Books writes a book's highlights as notes into this subfolder of the synced folder.
+# They are read here and never written: not a folder of the user's, and nothing ever goes up to it.
+BOOKS_FOLDER = "Reader's Books"
 
 
 # ------------------------------------------------------------------------------------------
@@ -62,6 +65,7 @@ _TR = {
   "file the notes in folders": "ranger les notes en dossiers",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Dossiers : la liste commence par eux, « toutes les notes » d'abord. Sur le serveur, chaque dossier est un sous-dossier du dossier des notes.",
   "folders": "dossiers",
+  "books": "livres",
   "+ new note": "+ nouvelle note",
   "new note": "nouvelle note",
   "untitled": "sans titre",
@@ -113,6 +117,7 @@ _TR = {
   "file the notes in folders": "Notizen in Ordnern ablegen",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Ordner: Die Liste beginnt mit ihnen, « alle Notizen » zuerst. Auf dem Server ist jeder Ordner ein Unterordner des Notizordners.",
   "folders": "Ordner",
+  "books": "Bücher",
   "+ new note": "+ neue Notiz",
   "new note": "neue Notiz",
   "untitled": "ohne Titel",
@@ -164,6 +169,7 @@ _TR = {
   "file the notes in folders": "ordenar las notas en carpetas",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Carpetas: la lista empieza por ellas, « todas las notas » primero. En el servidor, cada carpeta es una subcarpeta de la carpeta de notas.",
   "folders": "carpetas",
+  "books": "libros",
   "+ new note": "+ nueva nota",
   "new note": "nueva nota",
   "untitled": "sin título",
@@ -215,6 +221,7 @@ _TR = {
   "file the notes in folders": "arrumar as notas em pastas",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Pastas: a lista começa por elas, « todas as notas » primeiro. No servidor, cada pasta é uma subpasta da pasta das notas.",
   "folders": "pastas",
+  "books": "livros",
   "+ new note": "+ nova nota",
   "new note": "nova nota",
   "untitled": "sem título",
@@ -266,6 +273,7 @@ _TR = {
   "file the notes in folders": "раскладывать заметки по папкам",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Папки: список начинается с них, сначала «все заметки». На сервере каждая папка — подпапка папки заметок.",
   "folders": "папки",
+  "books": "книги",
   "+ new note": "+ новая заметка",
   "new note": "новая заметка",
   "untitled": "без названия",
@@ -393,6 +401,9 @@ class Store:
         self.folders = data.get("folders", [])
         # deleted or renamed here, to remove from the server once empty there
         self.gone_folders = data.get("goneFolders", [])
+        # the books folder is not one of them, even if an earlier version took it for one
+        self.folders = [f for f in self.folders if f["name"] != BOOKS_FOLDER]
+        self.gone_folders = [g for g in self.gone_folders if g != BOOKS_FOLDER]
         # the folder URL the notes were last synced with; None before any sync
         self.place = data.get("place")
 
@@ -438,6 +449,12 @@ class Store:
     def live(self):
         return sorted((n for n in self.all() if not n.get("deleted")), key=lambda n: -n["modified"])
 
+    def is_book(self, nid):
+        """A note of the books folder: the server's text, read only."""
+        with self.lock:
+            n = self._find(nid)
+            return n is not None and n.get("folder", "") == BOOKS_FOLDER
+
     def title(self, nid):
         return title_of(self.text(nid))
 
@@ -454,7 +471,7 @@ class Store:
 
     def create(self, text="", folder=""):
         with self.lock:
-            nid = self._create(text, folder=folder)
+            nid = self._create(text, folder="" if folder == BOOKS_FOLDER else folder)   # nothing is written among the books
             self._save_index()
             return nid
 
@@ -471,7 +488,7 @@ class Store:
         """Returns the name kept (made safe for a file system), or None when empty or taken."""
         with self.lock:
             n = folder_name_of(name)
-            if not n or any(f["name"].lower() == n.lower() for f in self.folders):
+            if not n or n.lower() == BOOKS_FOLDER.lower() or any(f["name"].lower() == n.lower() for f in self.folders):
                 return None
             self.folders.append({"name": n, "onServer": False})
             self.gone_folders = [g for g in self.gone_folders if g != n]
@@ -482,14 +499,15 @@ class Store:
         """A note to another folder ("" = none): it goes up again under its new path at the next sync."""
         with self.lock:
             n = self._find(nid)
-            if n is not None and n.get("folder", "") != folder:
+            # neither into the books folder nor out of it
+            if n is not None and n.get("folder", "") != folder and BOOKS_FOLDER not in (folder, n.get("folder", "")):
                 n.update(folder=folder, dirty=True)
                 self._save_index()
 
     def rename_folder(self, old, name):
         with self.lock:
             n = folder_name_of(name)
-            if not n:
+            if not n or BOOKS_FOLDER.lower() in (n.lower(), old.lower()):
                 return None
             if n == old:
                 return n
@@ -508,6 +526,8 @@ class Store:
     def delete_folder(self, name):
         """The folder goes; its notes stay, in "all notes" only."""
         with self.lock:
+            if name == BOOKS_FOLDER:
+                return
             if any(f["name"] == name and f.get("onServer") for f in self.folders):
                 self.gone_folders.append(name)
             for note in self.notes:
@@ -541,9 +561,11 @@ class Store:
             return [dict(f) for f in self.folders], list(self.gone_folders)
 
     def uses_folders(self):
-        """Anything placed in a folder, here or there: the subfolders are then synced whatever the setting says."""
+        """Anything placed in a folder, here or there: the subfolders are then synced whatever the setting says.
+        The books folder does not count: its notes come down with or without folders."""
         with self.lock:
-            return bool(self.folders or self.gone_folders or any(n.get("folder") or n.get("remoteFolder") for n in self.notes))
+            return bool(self.folders or self.gone_folders
+                        or any(f and f != BOOKS_FOLDER for n in self.notes for f in (n.get("folder"), n.get("remoteFolder"))))
 
     def save(self, nid, text, base=None):
         """Called after a typing pause. `base` is the text the editor started from: if the file
@@ -560,6 +582,8 @@ class Store:
                 self._create(text, nid)
                 self._save_index()
                 return None
+            if n.get("folder", "") == BOOKS_FOLDER:
+                return None           # a book note is only read
             cur = self.text(nid)
             if cur == text:
                 return None
@@ -574,7 +598,7 @@ class Store:
     def delete(self, nid):
         with self.lock:
             n = self._find(nid)
-            if n is None:
+            if n is None or n.get("folder", "") == BOOKS_FOLDER:
                 return
             if not n.get("remoteName"):
                 self._purge(nid)
@@ -612,11 +636,12 @@ class Store:
 
     def apply_remote(self, nid, remote_name, etag, text, modified, folder=""):
         """A file from the server, new here (nid None) or changed there. A note that changed
-        here since the sync started is left alone: the next run sees both sides moved."""
+        here since the sync started is left alone: the next run sees both sides moved.
+        (A book note has no side here: the server's text always replaces it.)"""
         with self.lock:
             if nid is not None:
                 n = self._find(nid)
-                if n is None or n.get("dirty") or n.get("deleted"):
+                if n is None or n.get("deleted") or (n.get("dirty") and folder != BOOKS_FOLDER):
                     return None
                 self._write(nid, text)
                 n.update(modified=modified, remoteName=remote_name, etag=etag, dirty=False, folder=folder, remoteFolder=folder)
@@ -628,13 +653,29 @@ class Store:
             self._save_index()
             return nid
 
+    def book_to_notes(self, nid):
+        """A note that sits in the books folder without having come from it, or came from it and
+        sits elsewhere (only an index written by hand or by an earlier version says so): an
+        ordinary note again, to go up as new. Its text is kept, the books folder is left alone."""
+        with self.lock:
+            n = self._find(nid)
+            if n is None:
+                return None
+            n.update(folder="" if n.get("folder", "") == BOOKS_FOLDER else n.get("folder", ""),
+                     remoteName=None, etag=None, remoteFolder="", dirty=True)
+            self._save_index()
+            return dict(n)
+
     def forget_server(self):
-        """Another server or folder: every note goes up again as new."""
+        """Another server or folder: every note goes up again as new. (The book notes never go
+        up: they stay as they are until the sync has seen the books folder of the new place.)"""
         with self.lock:
             for n in list(self.notes):
                 if n.get("deleted"):
                     self._purge(n["id"])
             for n in self.notes:
+                if n.get("folder", "") == BOOKS_FOLDER and n.get("remoteFolder", "") == BOOKS_FOLDER:
+                    continue
                 n.update(remoteName=None, etag=None, dirty=True, remoteFolder="")
             for f in self.folders:
                 f["onServer"] = False
@@ -775,7 +816,12 @@ def sync_run(store, cfg, timeout=30):
     turning the setting off never makes notes vanish from the server); otherwise, as before, the
     synced folder's own files only. A moved note goes up under its new path and the old file goes;
     a folder deleted there disappears here; one deleted or renamed here leaves the server once
-    empty there."""
+    empty there.
+
+    Book notes (1.4.0): the subfolder BOOKS_FOLDER, written by Reader's Books, is read whatever the
+    setting says and only ever read. New there → new here; changed there → replaced here; gone
+    there (or the whole subfolder) → gone here. Nothing is uploaded, renamed, deleted or created
+    in it, and it is not one of the user's folders."""
     dav = WebDav(cfg.get("username", ""), cfg.get("password", ""), timeout)
     root = folder_url(cfg)
     if not dav.exists(root):
@@ -792,7 +838,11 @@ def sync_run(store, cfg, timeout=30):
     store.syncing_with(root)
     remote = {f["name"]: f for f in entries if not f["dir"] and _is_note(f["name"])}
     with_folders = bool(cfg.get("folders")) or store.uses_folders()
-    server_dirs = {f["name"] for f in entries if f["dir"] and not f["name"].startswith(".")} if with_folders else set()
+    server_dirs = {f["name"] for f in entries if f["dir"] and not f["name"].startswith(".") and f["name"] != BOOKS_FOLDER} if with_folders else set()
+    if any(f["dir"] and f["name"] == BOOKS_FOLDER for f in entries):
+        for f in dav.list(dir_url(BOOKS_FOLDER)):
+            if not f["dir"] and _is_note(f["name"]):
+                remote[_key(BOOKS_FOLDER, f["name"])] = f
     folders, gone_folders = store.folders_state()
     gone_folders = set(gone_folders)
     present = set(server_dirs)
@@ -822,6 +872,25 @@ def sync_run(store, cfg, timeout=30):
         folder0 = note.get("remoteFolder", "")
         here = _key(folder0, name0) if name0 else None
         r = remote.get(here) if here else None
+        book_here, book_there = note.get("folder", "") == BOOKS_FOLDER, bool(name0) and folder0 == BOOKS_FOLDER
+        if book_there and (book_here or note.get("deleted")):
+            # a book note: the server's side only, whatever the index says of ours (dirty, deleted)
+            if r is None:
+                store.purge(note["id"])
+                deleted += 0 if note.get("deleted") else 1
+            elif note.get("deleted"):
+                store.purge(note["id"])   # never deleted there: it comes back below
+            elif r["etag"] != note.get("etag") or note.get("dirty"):
+                theirs = dav.get(url(folder0, name0), allow_missing=True)
+                if theirs is not None:
+                    store.apply_remote(note["id"], name0, r["etag"], theirs, r["modified"] or int(time.time() * 1000), BOOKS_FOLDER)
+                    down += 1
+            continue
+        if book_here != book_there and not note.get("deleted"):
+            note = store.book_to_notes(note["id"])
+            if note is None:
+                continue
+            name0, folder0, here, r = None, "", None, None
         if note.get("deleted"):
             if r is not None and (note.get("etag") is None or r["etag"] == note.get("etag")):
                 dav.delete(url(folder0, name0))
@@ -1211,7 +1280,11 @@ class Editor(QtWidgets.QTextEdit):
         fmt.setLineHeight(145, QtGui.QTextBlockFormat.ProportionalHeight)
         c.mergeBlockFormat(fmt)
 
-    def load(self, text):
+    def load(self, text, read_only=False):
+        """`read_only`: a book note. Its text can still be selected and copied, with the keyboard too."""
+        self.setReadOnly(read_only)
+        if read_only:
+            self.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse | QtCore.Qt.TextSelectableByKeyboard)
         self.setUndoRedoEnabled(False)
         self.setPlainText(text)
         self._spacing()
@@ -1552,6 +1625,8 @@ class Main(QtWidgets.QMainWindow):
         folders_on = bool(self.cfg.get("folders"))
         if not folders_on:
             self.place = None
+        elif self.place == BOOKS_FOLDER and not self.store.count(BOOKS_FOLDER):
+            self.place = FOLDERS    # the last book note left with the server's
         self.list.blockSignals(True)
         self.list.clear()
         if folders_on and self.place == FOLDERS and not q:
@@ -1559,6 +1634,9 @@ class Main(QtWidgets.QMainWindow):
             self.place_bar.hide()
             rows = [("all", _("all notes"), str(self.store.count()), None)]
             rows += [("folder", f, str(self.store.count(f)), f) for f in self.store.folder_names()]
+            if self.store.count(BOOKS_FOLDER):
+                # the book notes: a row like a folder, without a folder's menu
+                rows.append(("books", _("books"), str(self.store.count(BOOKS_FOLDER)), BOOKS_FOLDER))
             rows.append(("new", _("+ new folder"), "", None))
             for kind, label, count, name in rows:
                 item = QtWidgets.QListWidgetItem(label)
@@ -1569,7 +1647,7 @@ class Main(QtWidgets.QMainWindow):
             self.list.blockSignals(False)
             return
         if folders_on:
-            self.place_bar.setText("←  " + (_("all notes") if self.place in (None, FOLDERS) else self.place))
+            self.place_bar.setText("←  " + (_("all notes") if self.place in (None, FOLDERS) else _("books") if self.place == BOOKS_FOLDER else self.place))
             self.place_bar.show()
         else:
             self.place_bar.hide()
@@ -1584,7 +1662,7 @@ class Main(QtWidgets.QMainWindow):
         for n in notes:
             nid = n["id"]
             preview = self.store.preview(nid)
-            where = f" · {n['folder']}" if folders_on and inside is None and n.get("folder") else ""
+            where = f" · {_('books') if n['folder'] == BOOKS_FOLDER else n['folder']}" if folders_on and inside is None and n.get("folder") else ""
             sub = when_label(n["modified"]) + where + (f" · {preview}" if preview else "") + (" · ✎" if n.get("dirty") and mark else "")
             item = QtWidgets.QListWidgetItem(self.store.title(nid) or _("untitled"))
             item.setData(QtCore.Qt.UserRole, nid)
@@ -1604,7 +1682,7 @@ class Main(QtWidgets.QMainWindow):
         kind = item.data(KIND) if item else None
         if kind == "all":
             self.place = None; self.refresh_list()
-        elif kind == "folder":
+        elif kind in ("folder", "books"):
             self.place = item.data(QtCore.Qt.UserRole + 3); self.refresh_list()
         elif kind == "new":
             name, ok = QtWidgets.QInputDialog.getText(self, "reader's notes", _("name of the new folder"))
@@ -1632,6 +1710,8 @@ class Main(QtWidgets.QMainWindow):
             m.addAction(_("delete the folder"), lambda: self.delete_folder(name))
         elif kind:
             m.addAction(_("+ new folder"), lambda: self.item_clicked(self._new_folder_item()))
+        elif nid and self.store.is_book(nid):
+            return                    # a book note: nothing to move or delete
         elif nid:
             if self.cfg.get("folders"):
                 sub = m.addMenu(_("move to"))
@@ -1687,7 +1767,7 @@ class Main(QtWidgets.QMainWindow):
         self.current = nid
         self.loading = True
         text = self.store.text(nid)
-        self.editor.load(text)
+        self.editor.load(text, self.store.is_book(nid))
         self.loading = False
         self.base = text
         self.head.setText(title_of(text) or _("new note"))
@@ -1707,7 +1787,7 @@ class Main(QtWidgets.QMainWindow):
         self.sync_if_dirty()
 
     def typed(self):
-        if self.loading:
+        if self.loading or self.editor.isReadOnly():
             return
         text = self.editor.toPlainText()
         if self.current is None:
@@ -1735,9 +1815,9 @@ class Main(QtWidgets.QMainWindow):
         self.find.blockSignals(True)
         self.find.clear()
         self.find.blockSignals(False)
-        inside = self.place if self.cfg.get("folders") and self.place not in (None, FOLDERS) else ""
-        if self.place == FOLDERS:
-            self.place = None       # the new note shows in the list, not behind the folders
+        inside = self.place if self.cfg.get("folders") and self.place not in (None, FOLDERS, BOOKS_FOLDER) else ""
+        if self.place in (FOLDERS, BOOKS_FOLDER):
+            self.place = None       # the new note shows in the list, not behind the folders (and never among the books)
         self.open_note(self.store.create(folder=inside))
         self.editor.setFocus()
 
@@ -1779,7 +1859,7 @@ class Main(QtWidgets.QMainWindow):
                     cursor = min(self.editor.textCursor().position(), len(text))
                     scroll = self.editor.verticalScrollBar().value()
                     self.loading = True
-                    self.editor.load(text)
+                    self.editor.load(text, self.store.is_book(self.current))
                     self.loading = False
                     c = self.editor.textCursor()
                     c.setPosition(cursor)
@@ -1800,7 +1880,7 @@ class Main(QtWidgets.QMainWindow):
         m.addAction(_("find"), self.focus_find)
         if self.configured():
             m.addAction(_("sync now"), self.sync)
-        if self.current is not None:
+        if self.current is not None and not self.store.is_book(self.current):
             m.addSeparator()
             nid = self.current
             m.addAction(_("delete this note"), lambda: self.delete_note(nid))
