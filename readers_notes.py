@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 
 
 def _app_dirs():
@@ -45,6 +45,53 @@ SAVE_MS = 400             # typing pause before the file is written
 # Reader's Books writes a book's highlights as notes into this subfolder of the synced folder.
 # They are read here and never written: not a folder of the user's, and nothing ever goes up to it.
 BOOKS_FOLDER = "Reader's Books"
+
+# The colour themes shared by the Reader's apps: the two inks (white on black, black on white),
+# then the palettes of the Plume keyboard, in its order. (key, background, text, accent, on accent.)
+PALETTES = [
+    ("DARK", "#000000", "#ffffff", "#ffffff", "#000000"),
+    ("LIGHT", "#ffffff", "#000000", "#000000", "#ffffff"),
+    ("LAVANDE", "#1f1a2e", "#f4efff", "#b8a4ff", "#1f1a2e"),
+    ("SAUGE", "#d9e0d4", "#1e2a21", "#4c7a5b", "#ffffff"),
+    ("NORDIQUE", "#2e3440", "#eceff4", "#88c0d0", "#2e3440"),
+    ("TERRACOTTA", "#e6d9cc", "#2b211b", "#c25e38", "#ffffff"),
+    ("COQUETTE", "#f3d9dc", "#4a1f2b", "#d2455e", "#ffffff"),
+    ("MILITANTE", "#f2eee4", "#121212", "#e8412e", "#ffffff"),
+    ("TORRIDE", "#1e0d13", "#f8e9e6", "#e02a50", "#fff4f2"),
+    ("NATURE", "#2b2a24", "#f2efe4", "#d19a4e", "#2b2a24"),
+]
+THEME_NAMES = {"DARK": "white on black", "LIGHT": "black on white", "LAVANDE": "lavender", "SAUGE": "sage",
+               "NORDIQUE": "nordic", "TERRACOTTA": "terracotta", "COQUETTE": "coquette", "MILITANTE": "activist",
+               "TORRIDE": "sultry", "NATURE": "nature"}     # English keys of the translation table
+
+
+def palette(key):
+    """(background, text, accent, on accent) of a theme; an unknown key is the default ink."""
+    for row in PALETTES:
+        if row[0] == key:
+            return row[1:]
+    return PALETTES[1][1:]
+
+
+def next_theme(key):
+    """The theme after this one, round and round: the inks first, then the palettes."""
+    keys = [row[0] for row in PALETTES]
+    return keys[(keys.index(key) + 1) % len(keys)] if key in keys else keys[0]
+
+
+def theme_of(cfg):
+    """The theme of a config; one written before the themes existed holds only `dark`."""
+    key = cfg.get("theme")
+    if key in THEME_NAMES:
+        return key
+    return "DARK" if cfg.get("dark") else "LIGHT"
+
+
+def rgba(hex_colour, alpha):
+    """A CSS rgba() of a #rrggbb colour at this opacity."""
+    h = hex_colour.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
 
 
 # ------------------------------------------------------------------------------------------
@@ -81,6 +128,14 @@ _TR = {
   "settings (Ctrl+,)": "réglages (Ctrl+,)",
   "white on black": "blanc sur noir",
   "black on white": "noir sur blanc",
+  "lavender": "lavande",
+  "sage": "sauge",
+  "nordic": "nordique",
+  "terracotta": "terracotta",
+  "coquette": "coquette",
+  "activist": "militante",
+  "sultry": "torride",
+  "nature": "nature",
   "server": "serveur",
   "username": "identifiant",
   "password": "mot de passe",
@@ -133,6 +188,14 @@ _TR = {
   "settings (Ctrl+,)": "Einstellungen (Strg+,)",
   "white on black": "Weiß auf Schwarz",
   "black on white": "Schwarz auf Weiß",
+  "lavender": "Lavendel",
+  "sage": "Salbei",
+  "nordic": "nordisch",
+  "terracotta": "Terrakotta",
+  "coquette": "kokett",
+  "activist": "kämpferisch",
+  "sultry": "glühend",
+  "nature": "Natur",
   "server": "Server",
   "username": "Benutzername",
   "password": "Passwort",
@@ -185,6 +248,14 @@ _TR = {
   "settings (Ctrl+,)": "ajustes (Ctrl+,)",
   "white on black": "blanco sobre negro",
   "black on white": "negro sobre blanco",
+  "lavender": "lavanda",
+  "sage": "salvia",
+  "nordic": "nórdico",
+  "terracotta": "terracota",
+  "coquette": "coqueta",
+  "activist": "militante",
+  "sultry": "tórrido",
+  "nature": "naturaleza",
   "server": "servidor",
   "username": "usuario",
   "password": "contraseña",
@@ -237,6 +308,14 @@ _TR = {
   "settings (Ctrl+,)": "definições (Ctrl+,)",
   "white on black": "branco sobre preto",
   "black on white": "preto sobre branco",
+  "lavender": "lavanda",
+  "sage": "sálvia",
+  "nordic": "nórdico",
+  "terracotta": "terracota",
+  "coquette": "coquete",
+  "activist": "militante",
+  "sultry": "tórrido",
+  "nature": "natureza",
   "server": "servidor",
   "username": "utilizador",
   "password": "palavra-passe",
@@ -289,6 +368,14 @@ _TR = {
   "settings (Ctrl+,)": "настройки (Ctrl+,)",
   "white on black": "белым по чёрному",
   "black on white": "чёрным по белому",
+  "lavender": "лаванда",
+  "sage": "шалфей",
+  "nordic": "северный",
+  "terracotta": "терракота",
+  "coquette": "кокетка",
+  "activist": "активистка",
+  "sultry": "знойный",
+  "nature": "природа",
   "server": "сервер",
   "username": "имя пользователя",
   "password": "пароль",
@@ -1175,6 +1262,7 @@ class NoteDelegate(QtWidgets.QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.fg, self.bg = QtGui.QColor("#000"), QtGui.QColor("#fff")
+        self.accent, self.on_accent = self.fg, self.bg     # the chosen row: filled with the accent
         self.big, self.small = QtGui.QFont(), QtGui.QFont()
 
     def sizeHint(self, option, index):
@@ -1188,7 +1276,7 @@ class NoteDelegate(QtWidgets.QStyledItemDelegate):
         p.save()
         r = option.rect.adjusted(22, 10, -22, -10)
         sel = bool(option.state & QtWidgets.QStyle.State_Selected)
-        fg, bg = (self.bg, self.fg) if sel else (self.fg, self.bg)
+        fg, bg = (self.on_accent, self.accent) if sel else (self.fg, self.bg)
         p.fillRect(option.rect, bg)
         dim = QtGui.QColor(fg)
         dim.setAlphaF(0.6 if sel else 0.55)
@@ -1449,7 +1537,7 @@ class Main(QtWidgets.QMainWindow):
         self.setWindowTitle("reader's notes")
         self.resize(1080, 760)
         self.font_size = int(self.cfg.get("font_size", 13))
-        self.dark = bool(self.cfg.get("dark", False))
+        self.theme = theme_of(self.cfg)
 
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
@@ -1565,9 +1653,8 @@ class Main(QtWidgets.QMainWindow):
     # ---- look ------------------------------------------------------------------------
 
     def apply_style(self):
-        bg, fg = ("#000000", "#ffffff") if self.dark else ("#ffffff", "#000000")
-        dim = "rgba(255,255,255,0.55)" if self.dark else "rgba(0,0,0,0.55)"
-        rule = "rgba(255,255,255,0.25)" if self.dark else "rgba(0,0,0,0.25)"
+        bg, fg, accent, on_accent = palette(self.theme)
+        dim, rule = rgba(fg, 0.55), rgba(fg, 0.25)
         s = self.font_size
         family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), SANS_FAMILY)
         self.setStyleSheet(f"""
@@ -1580,20 +1667,21 @@ class Main(QtWidgets.QMainWindow):
             QLineEdit#find {{ border: none; border-bottom: 1px solid {rule}; padding: 14px 22px; }}
             QListWidget#notes {{ background: {bg}; border: none; outline: none; padding: 6px 0; }}
             QTextEdit {{ background: {bg}; color: {fg}; border: none; font-family: "{family}"; font-size: {s + 3}pt;
-                         selection-background-color: {fg}; selection-color: {bg}; }}
+                         selection-background-color: {accent}; selection-color: {on_accent}; }}
             QScrollBar:vertical {{ background: {bg}; width: 6px; }} QScrollBar::handle:vertical {{ background: {rule}; min-height: 24px; }}
             QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }} QScrollBar::add-page, QScrollBar::sub-page {{ background: {bg}; }}
             QMenu {{ background: {bg}; color: {fg}; border: 1px solid {rule}; padding: 4px 0; }}
-            QMenu::item {{ padding: 6px 22px; }} QMenu::item:selected {{ background: {fg}; color: {bg}; }}
+            QMenu::item {{ padding: 6px 22px; }} QMenu::item:selected {{ background: {accent}; color: {on_accent}; }}
             QMenu::separator {{ height: 1px; background: {rule}; margin: 4px 0; }}
             QDialog QLineEdit, QComboBox {{ background: {bg}; color: {fg}; border: 1px solid {rule}; padding: 6px; }}
-            QComboBox QAbstractItemView {{ background: {bg}; color: {fg}; selection-background-color: {fg}; selection-color: {bg}; }}
+            QComboBox QAbstractItemView {{ background: {bg}; color: {fg}; selection-background-color: {accent}; selection-color: {on_accent}; }}
             QPushButton {{ background: {bg}; color: {fg}; border: 1px solid {fg}; padding: 6px 18px; }}
-            QPushButton:default {{ background: {fg}; color: {bg}; }}
+            QPushButton:default {{ background: {accent}; color: {on_accent}; border-color: {accent}; }}
             QPushButton#quiet {{ border: none; color: {dim}; padding: 6px 4px; }}
             QToolTip {{ background: {bg}; color: {fg}; border: 1px solid {rule}; }}
         """)
         self.delegate.fg, self.delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
+        self.delegate.accent, self.delegate.on_accent = QtGui.QColor(accent), QtGui.QColor(on_accent)
         big = QtGui.QFont(family)
         big.setPointSize(s + 1)
         big.setWeight(QtGui.QFont.Light)
@@ -1609,8 +1697,10 @@ class Main(QtWidgets.QMainWindow):
         self.list.viewport().update()
 
     def toggle_theme(self):
-        self.dark = not self.dark
-        self.cfg["dark"] = self.dark
+        """The next theme of the cycle (the menu entry and Ctrl+T)."""
+        self.theme = next_theme(self.theme)
+        self.cfg["theme"] = self.theme
+        self.cfg["dark"] = self.theme == "DARK"      # for a config read by an older version
         save_config(self.cfg)
         self.apply_style()
 
@@ -1887,7 +1977,7 @@ class Main(QtWidgets.QMainWindow):
             nid = self.current
             m.addAction(_("delete this note"), lambda: self.delete_note(nid))
         m.addSeparator()
-        m.addAction(_("black on white") if self.dark else _("white on black"), self.toggle_theme)
+        m.addAction(_(THEME_NAMES[next_theme(self.theme)]), self.toggle_theme)
         m.addAction(_("settings"), self.setup)
         m.exec_(self.more.mapToGlobal(QtCore.QPoint(self.more.width() - m.sizeHint().width(), self.more.height())))
 
