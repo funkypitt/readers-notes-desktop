@@ -122,3 +122,22 @@ fits a second for as long as the window was open. The main thread never rested, 
 in a headless GNOME Shell 46 run on 2026-10-05 and gone with the fix. The layout is now
 invalidated only before the first show (the sizes cached before the style sheet applied), and
 a LayoutRequest fits the window only once it is shown: Qt has refreshed the sizes by then.
+
+## Tags (1.6.0, same as the phone 1.11.0)
+
+A tag is a word with `#` in front written in the note itself (`#work`, `#idée`): the note is a
+plain text file kept in step with other devices, so its tags travel inside it and any editor shows
+them. The rule (`tags_of`, the phone's `Tags.kt`): the `#` starts the text or follows white space,
+the word holds letters, digits, `_` and `-`, has at least one letter (`#12` is not a tag), and is
+read in lower case. A note's menu (right click, or ⋯ when it is open) holds **tags…**: every known
+tag with ● when the note carries it, and **+ new tag…**; a tag added that way goes on the last line
+when it holds only tags, else on a line of its own at the end (`tag_add`), and one taken off goes
+with the space before it (`tag_remove`). The list shows the tags in the note's second line, after
+the date and folder, and a line made only of tags is not used as the preview.
+
+**tags** (the ⋯ menu, the row among the folders when any tag exists) lists every tag with the
+number of notes carrying it, most used first; a tag opens the notes carrying it, across folders,
+and **also with a tag…** (⋯ or a right click on the list) narrows them to one more tag. The line
+above the list goes back: from the narrowed list to the tags, from the tags to where the list was.
+A search inside a narrowed list looks only at those notes. Tests: `tests/test_tags.py`.
+

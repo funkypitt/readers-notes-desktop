@@ -3,7 +3,7 @@
 One list, one page, black and white: a note is a `.txt` file whose first line is its title.
 Optional two-way sync with your own WebDAV folder (kDrive, Nextcloud…), the same one as
 [Reader's Notes](https://github.com/funkypitt/readers-notes) for Android, of which this is the
-desktop twin. No formatting, no folders, no account with the app.
+desktop twin. No formatting, no account with the app.
 
 ## Key points
 
@@ -15,6 +15,7 @@ desktop twin. No formatting, no folders, no account with the app.
 - A book's highlights, written by Reader's Books into the `Reader's Books` subfolder of the notes folder, show here as notes to read and copy from, under « books » when the notes are filed in folders. They follow the server and are never changed from here.
 - Without a server the notes stay on this computer: `~/.local/share/readers-notes/` on Linux, settings in `~/.config/readers-notes/config.json`, readable by you only.
 - A new computer: *export credentials…* writes a JSON file that Reader's Calendar, Tasks and Notes share; *import credentials…* reads it back. It holds passwords in clear: delete it once imported.
+- Tags: a word with # in front, anywhere in a note (`#work`), is a tag. ⋯ › **tags** lists them with their counts and shows the notes carrying one tag or several; a note's right click or ⋯ › **tags…** adds or removes them. Plain text, so they travel with the note to the phone.
 - Ctrl+T flips white on black / black on white; Ctrl+= and Ctrl+- change the text size.
 - English, French, German, Spanish, Portuguese and Russian, following the system language.
 

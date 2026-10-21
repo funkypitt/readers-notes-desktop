@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 
 
 def _app_dirs():
@@ -112,6 +112,12 @@ _TR = {
   "file the notes in folders": "ranger les notes en dossiers",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Dossiers : la liste commence par eux, « toutes les notes » d'abord. Sur le serveur, chaque dossier est un sous-dossier du dossier des notes.",
   "folders": "dossiers",
+  'tags': 'tags',
+  'tags…': 'tags…',
+  'also with a tag…': 'aussi avec un tag…',
+  '+ new tag…': '+ nouveau tag…',
+  'name of the new tag': 'nom du nouveau tag',
+  "no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them.": "aucun tag pour l'instant. Un tag est un mot précédé de #, écrit n'importe où dans une note : #travail. Le menu d'une note les ajoute ou les retire.",
   "books": "livres",
   "+ new note": "+ nouvelle note",
   "new note": "nouvelle note",
@@ -172,6 +178,12 @@ _TR = {
   "file the notes in folders": "Notizen in Ordnern ablegen",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Ordner: Die Liste beginnt mit ihnen, « alle Notizen » zuerst. Auf dem Server ist jeder Ordner ein Unterordner des Notizordners.",
   "folders": "Ordner",
+  'tags': 'Tags',
+  'tags…': 'Tags…',
+  'also with a tag…': 'auch mit einem Tag…',
+  '+ new tag…': '+ neuer Tag…',
+  'name of the new tag': 'Name des neuen Tags',
+  "no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them.": 'noch kein Tag. Ein Tag ist ein Wort mit # davor, irgendwo in einer Notiz geschrieben: #arbeit. Das Menü einer Notiz fügt sie hinzu oder entfernt sie.',
   "books": "Bücher",
   "+ new note": "+ neue Notiz",
   "new note": "neue Notiz",
@@ -232,6 +244,12 @@ _TR = {
   "file the notes in folders": "ordenar las notas en carpetas",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Carpetas: la lista empieza por ellas, « todas las notas » primero. En el servidor, cada carpeta es una subcarpeta de la carpeta de notas.",
   "folders": "carpetas",
+  'tags': 'etiquetas',
+  'tags…': 'etiquetas…',
+  'also with a tag…': 'también con una etiqueta…',
+  '+ new tag…': '+ nueva etiqueta…',
+  'name of the new tag': 'nombre de la nueva etiqueta',
+  "no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them.": 'aún no hay etiquetas. Una etiqueta es una palabra con # delante, escrita en cualquier parte de una nota: #trabajo. El menú de una nota las añade o las quita.',
   "books": "libros",
   "+ new note": "+ nueva nota",
   "new note": "nueva nota",
@@ -292,6 +310,12 @@ _TR = {
   "file the notes in folders": "arrumar as notas em pastas",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Pastas: a lista começa por elas, « todas as notas » primeiro. No servidor, cada pasta é uma subpasta da pasta das notas.",
   "folders": "pastas",
+  'tags': 'etiquetas',
+  'tags…': 'etiquetas…',
+  'also with a tag…': 'também com uma etiqueta…',
+  '+ new tag…': '+ nova etiqueta…',
+  'name of the new tag': 'nome da nova etiqueta',
+  "no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them.": 'ainda não há etiquetas. Uma etiqueta é uma palavra com # à frente, escrita em qualquer parte de uma nota: #trabalho. O menu de uma nota acrescenta-as ou retira-as.',
   "books": "livros",
   "+ new note": "+ nova nota",
   "new note": "nova nota",
@@ -352,6 +376,12 @@ _TR = {
   "file the notes in folders": "раскладывать заметки по папкам",
   "Folders: the list starts with them, « all notes » first. On the server each folder is a subfolder of the notes folder.": "Папки: список начинается с них, сначала «все заметки». На сервере каждая папка — подпапка папки заметок.",
   "folders": "папки",
+  'tags': 'теги',
+  'tags…': 'теги…',
+  'also with a tag…': 'ещё с тегом…',
+  '+ new tag…': '+ новый тег…',
+  'name of the new tag': 'название нового тега',
+  "no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them.": 'тегов пока нет. Тег — это слово с # впереди, написанное в любом месте заметки: #работа. Меню заметки добавляет или убирает их.',
   "books": "книги",
   "+ new note": "+ новая заметка",
   "new note": "новая заметка",
@@ -454,6 +484,90 @@ def file_name_of(text):
     return (base or "untitled") + ".txt"
 
 
+# ---- tags: a word with # in front, written in the note (the same rule as the phone) ----------
+# A tag starts the text or follows white space, holds letters, digits, "_" and "-", and has at
+# least one letter ("#12" is not a tag). Compared without case, kept in lower case. The note is a
+# plain text file kept in step with other devices, so its tags travel inside it.
+_TAG = re.compile(r"(?<![^\s])#([\w-]+)")
+
+
+def _is_tag(word):
+    return any(c.isalpha() for c in word)
+
+
+def tags_of(text):
+    """The tags of a text, lower case, in the order they appear, each once."""
+    out = []
+    for m in _TAG.finditer(text):
+        t = m.group(1).rstrip("-").lower()
+        if _is_tag(t) and t not in out:
+            out.append(t)
+    return out
+
+
+def tag_clean(name):
+    """The tag as the person typed it, made into a tag: "#", spaces and capitals gone; None when nothing is left."""
+    t = re.sub(r"\s+", "-", name.strip().lstrip("#"))
+    t = re.sub(r"[^\w-]", "", t).strip("-").lower()
+    return t if t and _is_tag(t) else None
+
+
+def _is_tag_line(line):
+    t = line.strip()
+    return bool(t) and all(w.startswith("#") and len(w) > 1 for w in t.split())
+
+
+def tag_add(text, tag):
+    """The text with the tag added: on the last line when it holds only tags, else on a new line
+    after a blank one. Unchanged when the tag is there already."""
+    t = tag_clean(tag)
+    if t is None or t in tags_of(text):
+        return text
+    if not text.strip():
+        return "#" + t
+    lines = text.rstrip().split("\n")
+    if _is_tag_line(lines[-1]):
+        return "\n".join(lines[:-1]) + ("\n" if len(lines) > 1 else "") + lines[-1].rstrip() + " #" + t
+    return text.rstrip() + "\n\n#" + t
+
+
+def tag_remove(text, tag):
+    """The text without the tag: each "#tag" gone with the space before it (after it when the tag
+    starts its line, and the line break when the line is left empty); lines emptied at the end go too."""
+    t = tag_clean(tag)
+    if t is None:
+        return text
+    out, last = [], 0
+    for m in _TAG.finditer(text):
+        if m.group(1).rstrip("-").lower() != t:
+            continue
+        start = m.start()
+        while start > last and text[start - 1] in " \t":
+            start -= 1
+        out.append(text[last:start])
+        last = m.end()
+        if start == m.start() and (start == 0 or text[start - 1] == "\n"):
+            while last < len(text) and text[last] in " \t":
+                last += 1
+            if last < len(text) and text[last] == "\n":
+                last += 1
+    out.append(text[last:])
+    return "".join(out).rstrip(" \t\n")
+
+
+def tags_count(texts):
+    """Every tag of these texts with the number of texts carrying it, most used first then by name."""
+    n = {}
+    for text in texts:
+        for t in tags_of(text):
+            n[t] = n.get(t, 0) + 1
+    return sorted(n.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
+def tags_label(tags):
+    return " ".join("#" + t for t in tags)
+
+
 def server_copy_text(text):
     lines = text.split("\n")
     return lines[0] + " (" + _("server copy") + ")" + "\n" + "\n".join(lines[1:])
@@ -547,7 +661,9 @@ class Store:
 
     def preview(self, nid):
         lines = [l.strip() for l in _LINES.split(self.text(nid)) if l.strip()]
-        return lines[1] if len(lines) > 1 else ""
+        # the line after the title, unless it only holds tags (they show beside the preview)
+        rest = [l for l in lines[1:] if not _is_tag_line(l)]
+        return rest[0] if rest else ""
 
     def _create(self, text, nid=None, folder=""):
         nid = nid or _new_id()
@@ -1251,7 +1367,7 @@ class Clickable(QtWidgets.QLabel):
             self.clicked.emit()
 
 
-KIND = QtCore.Qt.UserRole + 2      # a folder row: "all", "folder" or "new"
+KIND = QtCore.Qt.UserRole + 2      # a folder row: "all", "folder", "books", "tags", "new" — or a tag row: "tag"
 FOLDERS = "\x00folders"             # the place: the list of folders (folders on)
 
 
@@ -1281,11 +1397,17 @@ class NoteDelegate(QtWidgets.QStyledItemDelegate):
         dim = QtGui.QColor(fg)
         dim.setAlphaF(0.6 if sel else 0.55)
         kind = index.data(KIND)
-        if kind:   # a folder row: small folder, name, count
+        if kind:   # a folder row: small folder, name, count — a tag row: "#name", count
             fb = QtGui.QFontMetrics(self.big)
             gh = int(fb.height() * 0.62); gw = int(gh * 1.3)
             gy = r.top() + (fb.height() - gh) // 2
-            self.glyph(p, QtCore.QRectF(r.left(), gy, gw, gh), dim if kind == "new" else fg, kind == "all", kind == "new")
+            if kind == "tag":
+                gw = -16                 # no sign: the # is in the name
+            elif kind == "tags":         # the tags row among the folders: a # where the folder sign goes
+                p.setFont(self.big); p.setPen(fg)
+                p.drawText(QtCore.QRect(r.left(), r.top(), gw, fb.height()), QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, "#")
+            else:
+                self.glyph(p, QtCore.QRectF(r.left(), gy, gw, gh), dim if kind == "new" else fg, kind == "all", kind == "new")
             count = index.data(QtCore.Qt.UserRole + 1) or ""
             cw = fb.horizontalAdvance(count) + 8 if count else 0
             p.setFont(self.big)
@@ -1553,8 +1675,11 @@ class Main(QtWidgets.QMainWindow):
         left.setSpacing(0)
         # Folders on: where the list is — the folders (FOLDERS), every note (None) or one folder.
         self.place = FOLDERS if self.cfg.get("folders") else None
+        # Tags: the page listing them (tags_page), and the tags every shown note must carry (tag_filter).
+        self.tags_page = False
+        self.tag_filter = []
         self.place_bar = Clickable("", "placebar")
-        self.place_bar.clicked.connect(self.to_folders)
+        self.place_bar.clicked.connect(self.go_back)
         self.place_bar.hide()
         left.addWidget(self.place_bar)
         self.find = QtWidgets.QLineEdit()
@@ -1721,7 +1846,24 @@ class Main(QtWidgets.QMainWindow):
             self.place = FOLDERS    # the last book note left with the server's
         self.list.blockSignals(True)
         self.list.clear()
-        if folders_on and self.place == FOLDERS and not q:
+        if self.tags_page and not q:
+            # the tags, most used first, each with the number of notes carrying it
+            self.place_bar.setText("←  " + (_("folders") if folders_on else _("all notes")))
+            self.place_bar.show()
+            counted = tags_count(self.store.text(n["id"]) for n in self.store.live())
+            if not counted:
+                item = QtWidgets.QListWidgetItem(_("no tag yet. A tag is a word with # in front, written anywhere in a note: #work. A note's menu adds or removes them."))
+                item.setFlags(QtCore.Qt.NoItemFlags)
+                self.list.addItem(item)
+            for tag, n in counted:
+                item = QtWidgets.QListWidgetItem("#" + tag)
+                item.setData(KIND, "tag")
+                item.setData(QtCore.Qt.UserRole + 1, str(n))
+                item.setData(QtCore.Qt.UserRole + 3, tag)
+                self.list.addItem(item)
+            self.list.blockSignals(False)
+            return
+        if folders_on and self.place == FOLDERS and not q and not self.tag_filter:
             # the folders, as in Reader's Scanner but as a list: "all notes" first, "+ new folder" last
             self.place_bar.hide()
             rows = [("all", _("all notes"), str(self.store.count()), None)]
@@ -1729,6 +1871,9 @@ class Main(QtWidgets.QMainWindow):
             if self.store.count(BOOKS_FOLDER):
                 # the book notes: a row like a folder, without a folder's menu
                 rows.append(("books", _("books"), str(self.store.count(BOOKS_FOLDER)), BOOKS_FOLDER))
+            tags = tags_count(self.store.text(n["id"]) for n in self.store.live())
+            if tags:
+                rows.append(("tags", _("tags"), str(len(tags)), None))
             rows.append(("new", _("+ new folder"), "", None))
             for kind, label, count, name in rows:
                 item = QtWidgets.QListWidgetItem(label)
@@ -1738,14 +1883,19 @@ class Main(QtWidgets.QMainWindow):
                 self.list.addItem(item)
             self.list.blockSignals(False)
             return
-        if folders_on:
+        if self.tag_filter:
+            self.place_bar.setText("←  " + tags_label(self.tag_filter))
+            self.place_bar.show()
+        elif folders_on:
             self.place_bar.setText("←  " + (_("all notes") if self.place in (None, FOLDERS) else _("books") if self.place == BOOKS_FOLDER else self.place))
             self.place_bar.show()
         else:
             self.place_bar.hide()
-        inside = self.place if self.place not in (None, FOLDERS) else None
+        inside = self.place if self.place not in (None, FOLDERS) and not self.tag_filter else None
+        wanted = set(self.tag_filter)
         notes = [n for n in self.store.live()
-                 if (inside is None or q or n.get("folder", "") == inside) and (not q or q in self.store.text(n["id"]).lower())]
+                 if (inside is None or q or n.get("folder", "") == inside) and (not q or q in self.store.text(n["id"]).lower())
+                 and (not wanted or wanted <= set(tags_of(self.store.text(n["id"]))))]
         mark = self.configured()
         if not notes:
             item = QtWidgets.QListWidgetItem(_("nothing found") if q else _("nothing yet. The first line of a note is its title."))
@@ -1755,7 +1905,8 @@ class Main(QtWidgets.QMainWindow):
             nid = n["id"]
             preview = self.store.preview(nid)
             where = f" · {_('books') if n['folder'] == BOOKS_FOLDER else n['folder']}" if folders_on and inside is None and n.get("folder") else ""
-            sub = when_label(n["modified"]) + where + (f" · {preview}" if preview else "") + (" · ✎" if n.get("dirty") and mark else "")
+            tags = tags_of(self.store.text(nid))
+            sub = when_label(n["modified"]) + where + (" · " + tags_label(tags) if tags else "") + (f" · {preview}" if preview else "") + (" · ✎" if n.get("dirty") and mark else "")
             item = QtWidgets.QListWidgetItem(self.store.title(nid) or _("untitled"))
             item.setData(QtCore.Qt.UserRole, nid)
             item.setData(QtCore.Qt.UserRole + 1, sub)
@@ -1770,12 +1921,100 @@ class Main(QtWidgets.QMainWindow):
         self.find.blockSignals(True); self.find.clear(); self.find.blockSignals(False)
         self.refresh_list()
 
+    def go_back(self):
+        """The line above the list: out of the tag filter to the tags, out of the tags to where the
+        list was, out of a folder to the folders."""
+        if self.tag_filter:
+            self.tag_filter = []
+            self.tags_page = True
+            self.find.blockSignals(True); self.find.clear(); self.find.blockSignals(False)
+            self.refresh_list()
+        elif self.tags_page:
+            self.tags_page = False
+            self.find.blockSignals(True); self.find.clear(); self.find.blockSignals(False)
+            self.refresh_list()
+        else:
+            self.to_folders()
+
+    def to_tags(self):
+        """The page of tags (the ⋯ menu, the row among the folders)."""
+        self.tag_filter = []
+        self.tags_page = True
+        self.find.blockSignals(True); self.find.clear(); self.find.blockSignals(False)
+        self.refresh_list()
+
+    def filter_tag(self, tag):
+        """The notes carrying this tag too (all of them when it is the first)."""
+        if tag not in self.tag_filter:
+            self.tag_filter = self.tag_filter + [tag]
+        self.tags_page = False
+        self.refresh_list()
+
+    def other_tags(self):
+        """The tags the shown notes carry beyond the filter: what the list can be narrowed to."""
+        shown = [self.store.text(self.list.item(i).data(QtCore.Qt.UserRole)) for i in range(self.list.count()) if self.list.item(i).data(QtCore.Qt.UserRole)]
+        return [t for t, _n in tags_count(shown) if t not in self.tag_filter]
+
+    def toggle_tag(self, nid, tag):
+        """The tag added to the note, or taken off it when it carries it. The open note changes in the
+        page itself (one step to undo); another one is written to the store."""
+        self.flush()
+        text = self.editor.toPlainText() if nid == self.current else self.store.text(nid)
+        new = tag_remove(text, tag) if tag in tags_of(text) else tag_add(text, tag)
+        if new == text:
+            return
+        if nid == self.current:
+            c = self.editor.textCursor()
+            pos = c.position()
+            c.beginEditBlock()              # the text and its line height: one step to undo
+            c.select(QtGui.QTextCursor.Document)
+            c.insertText(new)
+            self.editor._spacing()
+            c.endEditBlock()
+            c.setPosition(min(pos, len(new)))
+            self.editor.setTextCursor(c)
+            self.flush()
+        else:
+            self.store.save(nid, new)
+        self.refresh_list()
+        self.sync()
+
+    def new_tag(self, nid):
+        name, ok = QtWidgets.QInputDialog.getText(self, "reader's notes", _("name of the new tag"))
+        if ok and tag_clean(name):
+            self.toggle_tag(nid, tag_clean(name))
+
+    def tags_menu(self, menu, nid):
+        """The submenu « tags… » of a note: every known tag, ● when the note carries it, then « + new tag… »."""
+        sub = menu.addMenu(_("tags…"))
+        mine = set(tags_of(self.editor.toPlainText() if nid == self.current else self.store.text(nid)))
+        for tag, _n in tags_count(self.store.text(n["id"]) for n in self.store.live()):
+            a = sub.addAction(("● " if tag in mine else "○ ") + "#" + tag)
+            a.triggered.connect(lambda _c=False, t=tag: self.toggle_tag(nid, t))
+        if sub.actions():
+            sub.addSeparator()
+        sub.addAction(_("+ new tag…"), lambda: self.new_tag(nid))
+
+    def narrow_menu(self, menu):
+        """« also with a tag… »: the list narrowed to one more tag, when any note shown carries another."""
+        others = self.other_tags() if self.tag_filter else []
+        if not others:
+            return
+        sub = menu.addMenu(_("also with a tag…"))
+        for tag in others:
+            a = sub.addAction("#" + tag)
+            a.triggered.connect(lambda _c=False, t=tag: self.filter_tag(t))
+
     def item_clicked(self, item):
         kind = item.data(KIND) if item else None
         if kind == "all":
             self.place = None; self.refresh_list()
         elif kind in ("folder", "books"):
             self.place = item.data(QtCore.Qt.UserRole + 3); self.refresh_list()
+        elif kind == "tags":
+            self.to_tags()
+        elif kind == "tag":
+            self.filter_tag(item.data(QtCore.Qt.UserRole + 3))
         elif kind == "new":
             name, ok = QtWidgets.QInputDialog.getText(self, "reader's notes", _("name of the new folder"))
             if ok and name.strip() and self.store.add_folder(name):
@@ -1800,6 +2039,8 @@ class Main(QtWidgets.QMainWindow):
             name = item.data(QtCore.Qt.UserRole + 3)
             m.addAction(_("rename…"), lambda: self.rename_folder(name))
             m.addAction(_("delete the folder"), lambda: self.delete_folder(name))
+        elif kind == "tag" or (kind is None and nid is None and self.tags_page):
+            return                    # a tag: nothing but opening it
         elif kind:
             m.addAction(_("+ new folder"), lambda: self.item_clicked(self._new_folder_item()))
         elif nid and self.store.is_book(nid):
@@ -1811,9 +2052,12 @@ class Main(QtWidgets.QMainWindow):
                 for label, target in [(_("no folder"), "")] + [(f, f) for f in self.store.folder_names()]:
                     a = sub.addAction(("● " if target == here else "○ ") + label)
                     a.triggered.connect(lambda _c=False, t=target: self.move_note(nid, t))
+            self.tags_menu(m, nid)
             m.addAction(_("delete"), lambda: self.delete_note(nid))
         else:
             m.addAction(_("+ new note"), self.new_note)
+            m.addAction(_("tags"), self.to_tags)
+            self.narrow_menu(m)
         m.exec_(self.list.mapToGlobal(pos))
 
     def _new_folder_item(self):
@@ -1910,6 +2154,7 @@ class Main(QtWidgets.QMainWindow):
         inside = self.place if self.cfg.get("folders") and self.place not in (None, FOLDERS, BOOKS_FOLDER) else ""
         if self.place in (FOLDERS, BOOKS_FOLDER):
             self.place = None       # the new note shows in the list, not behind the folders (and never among the books)
+        self.tags_page, self.tag_filter = False, []    # a new note carries no tag yet: the list shows it
         self.open_note(self.store.create(folder=inside))
         self.editor.setFocus()
 
@@ -1970,11 +2215,14 @@ class Main(QtWidgets.QMainWindow):
         m = QtWidgets.QMenu(self)
         m.addAction(_("+ new note"), self.new_note)
         m.addAction(_("find"), self.focus_find)
+        m.addAction(_("tags"), self.to_tags)
+        self.narrow_menu(m)
         if self.configured():
             m.addAction(_("sync now"), self.sync)
         if self.current is not None and not self.store.is_book(self.current):
             m.addSeparator()
             nid = self.current
+            self.tags_menu(m, nid)
             m.addAction(_("delete this note"), lambda: self.delete_note(nid))
         m.addSeparator()
         m.addAction(_(THEME_NAMES[next_theme(self.theme)]), self.toggle_theme)
