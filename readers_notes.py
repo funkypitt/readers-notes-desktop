@@ -21,7 +21,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.8.0"
+VERSION = "1.9.0"
 
 
 def _app_dirs():
@@ -1563,6 +1563,167 @@ def credentials_dialog(parent, export, cfg):
         return False, _("cannot use this file: %1", e.strerror or e)
 
 
+# ------------------------------------------------------------------------------------------
+# One note as a PDF: A4 pages, black on white whatever the colour theme, the note's first line
+# as the heading, its text and its pictures in their order, a small page number at the foot.
+# ------------------------------------------------------------------------------------------
+
+_PDF_TR = {
+ "fr": {"export as PDF…": "exporter en PDF…", "PDF (*.pdf)": "PDF (*.pdf)", "saved as %1": "enregistré sous %1", "the PDF could not be saved: %1": "le PDF n'a pas pu être enregistré : %1"},
+ "de": {"export as PDF…": "als PDF exportieren…", "PDF (*.pdf)": "PDF (*.pdf)", "saved as %1": "gespeichert als %1", "the PDF could not be saved: %1": "das PDF konnte nicht gespeichert werden: %1"},
+ "es": {"export as PDF…": "exportar como PDF…", "PDF (*.pdf)": "PDF (*.pdf)", "saved as %1": "guardado como %1", "the PDF could not be saved: %1": "no se pudo guardar el PDF: %1"},
+ "pt": {"export as PDF…": "exportar como PDF…", "PDF (*.pdf)": "PDF (*.pdf)", "saved as %1": "guardado como %1", "the PDF could not be saved: %1": "não foi possível guardar o PDF: %1"},
+ "ru": {"export as PDF…": "экспорт в PDF…", "PDF (*.pdf)": "PDF (*.pdf)", "saved as %1": "сохранено как %1", "the PDF could not be saved: %1": "не удалось сохранить PDF: %1"},
+}
+for _l, _d in _PDF_TR.items():
+    _TR.setdefault(_l, {}).update(_d)
+
+
+def pdf_blocks(text):
+    """(heading, blocks): the first line of text is the heading, taken out of the body; blocks are
+    ("words", text) and ("picture", name) in the note's order (the same cut as the phone's PdfLayout)."""
+    lines = _LINES.split(text)
+    first = next((i for i, l in enumerate(lines) if l.strip() and picture_of_line(l) is None), -1)
+    heading = lines[first].strip() if first >= 0 else ""
+    blocks, words = [], None
+
+    def flush():
+        if words is not None:
+            t = re.sub(r"^(?:[ \t]*\n)+", "", "\n".join(words)).rstrip()
+            if t:
+                blocks.append(("words", t))
+    for i, line in enumerate(lines):
+        if i == first:
+            continue
+        name = picture_of_line(line)
+        if name:
+            flush(); words = None
+            blocks.append(("picture", name))
+        else:
+            words = (words or []) + [line]
+    flush()
+    return heading, blocks
+
+
+def pdf_file_name(title):
+    """The exported file's name: the app's, then the note's title, without the signs file systems refuse."""
+    clean = re.sub(r"\s+", " ", re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', " ", title)).strip().strip(".")[:60].strip()
+    return f"readers-notes-{clean}.pdf" if clean else "readers-notes.pdf"
+
+
+def export_pdf(text, path, pictures_dir, family=None, heading_if_none=""):
+    """Writes the note to path as a PDF; returns the number of pages."""
+    family = family or SANS_FAMILY
+    heading, blocks = pdf_blocks(text)
+    heading = heading or heading_if_none
+    tmp = path + ".part"
+    writer = QtGui.QPdfWriter(tmp)
+    writer.setPageSize(QtGui.QPageSize(QtGui.QPageSize.A4))
+    writer.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0))
+    writer.setResolution(300)
+    writer.setCreator("Reader's Notes")
+    writer.setTitle(heading)
+    pt = writer.resolution() / 72.0
+    page_w, page_h = 595 * pt, 842 * pt
+    side, top, bottom = 64 * pt, 64 * pt, 72 * pt
+    width, limit = page_w - 2 * side, page_h - bottom
+    body = QtGui.QFont(family); body.setPointSizeF(12); body.setWeight(QtGui.QFont.Light if family == "Roboto" else QtGui.QFont.Normal)
+    head = QtGui.QFont(family); head.setPointSizeF(20); head.setWeight(QtGui.QFont.Normal if family == "Roboto" else QtGui.QFont.Bold)
+    foot = QtGui.QFont(family); foot.setPointSizeF(9)
+    note = QtGui.QFont(family); note.setPointSizeF(10)
+    grey = QtGui.QColor(0x80, 0x80, 0x80)
+    images = {}
+
+    def image(name):
+        if name not in images:
+            img = QtGui.QImage(os.path.join(pictures_dir, name))
+            images[name] = None if img.isNull() else img
+        return images[name]
+
+    def lay(painter, total):
+        state = {"page": 1, "y": top}
+
+        def finish():
+            if painter and total:
+                painter.setFont(foot); painter.setPen(grey)
+                painter.drawText(QtCore.QRectF(0, page_h - 46 * pt, page_w, 14 * pt), QtCore.Qt.AlignCenter, f"{state['page']} / {total}")
+
+        def new_page():
+            finish()
+            if painter:
+                writer.newPage()
+            state["page"] += 1
+            state["y"] = top
+
+        def flow(t, font, spacing):
+            fm = QtGui.QFontMetricsF(font, writer)
+            step = fm.height() * spacing
+            for para in t.split("\n"):
+                tl = QtGui.QTextLayout(para, font, writer)
+                tl.beginLayout()
+                lines = []
+                while True:
+                    line = tl.createLine()
+                    if not line.isValid():
+                        break
+                    line.setLineWidth(width)
+                    lines.append(line)
+                tl.endLayout()
+                for line in lines or [None]:        # an empty line keeps its room
+                    if state["y"] + step > limit and state["y"] > top:
+                        new_page()
+                    if painter and line is not None:
+                        painter.setPen(QtCore.Qt.black)
+                        line.draw(painter, QtCore.QPointF(side - line.x(), state["y"] + (step - fm.height()) / 2 - line.y()))
+                    state["y"] += step
+
+        flow(heading, head, 1.2)
+        state["y"] += 16 * pt
+        for kind, value in blocks:
+            if kind == "words":
+                flow(value, body, 1.35)
+                state["y"] += 6 * pt
+                continue
+            img = image(value)
+            if img is not None:
+                w, h = width, width * img.height() / max(1, img.width())
+                if h > limit - top:          # never taller than a page; the proportions kept
+                    h = limit - top; w = h * img.width() / max(1, img.height())
+            else:
+                w, h = width, 72 * pt
+            if state["y"] + h > limit and state["y"] > top:
+                new_page()
+            r = QtCore.QRectF(side + (width - w) / 2, state["y"], w, h)
+            if painter:
+                if img is not None:
+                    # about 200 pixels to the inch on paper: sharp, and the file stays light
+                    px = int(w / pt / 72 * 200)
+                    shown = img.scaledToWidth(px, QtCore.Qt.SmoothTransformation) if img.width() > px else img
+                    painter.drawImage(r, shown)
+                else:
+                    painter.setPen(QtGui.QPen(QtGui.QColor(0xB0, 0xB0, 0xB0), 0.75 * pt))
+                    painter.drawRect(r)
+                    painter.setFont(note); painter.setPen(grey)
+                    painter.drawText(r, QtCore.Qt.AlignCenter, _("picture on its way"))
+            state["y"] += h + 10 * pt
+        finish()
+        return state["page"]
+
+    total = lay(None, 0)
+    painter = QtGui.QPainter()
+    if not painter.begin(writer):
+        raise OSError(_("cannot use this file: %1", path))
+    try:
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform)
+        lay(painter, total)
+    finally:
+        painter.end()
+    del writer
+    os.replace(tmp, path)
+    return total
+
+
 def when_label(millis):
     d = datetime.fromtimestamp(millis / 1000)
     today = date.today()
@@ -2741,6 +2902,25 @@ class Main(QtWidgets.QMainWindow):
                 self.list.setCurrentItem(item)
         self.list.blockSignals(False)
 
+    def export_pdf(self, nid):
+        """The note as a PDF, saved where the person chooses (the documents folder first)."""
+        self.flush()
+        text = self.editor.text() if nid == self.current else self.store.text(nid)
+        title = self.title_shown(nid)
+        docs = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.DocumentsLocation)
+        start = docs if docs and os.path.isdir(docs) else os.path.expanduser("~")
+        path, _f = QtWidgets.QFileDialog.getSaveFileName(self, _("export as PDF…"), os.path.join(start, pdf_file_name(title)), _("PDF (*.pdf)"))
+        if not path:
+            return
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), SANS_FAMILY)
+        try:
+            export_pdf(text, path, self.store.pictures_dir, family, title)
+            self.status.setText(_("saved as %1", os.path.basename(path)))
+        except Exception as e:
+            self.status.setText(_("the PDF could not be saved: %1", getattr(e, "strerror", None) or e))
+
     def title_shown(self, nid):
         """The title, or for a note of pictures only « drawing » / « picture » by its first one."""
         t = self.store.title(nid)
@@ -2874,8 +3054,9 @@ class Main(QtWidgets.QMainWindow):
         elif kind:
             m.addAction(_("+ new folder"), lambda: self.item_clicked(self._new_folder_item()))
         elif nid and self.store.is_book(nid):
-            return                    # a book note: nothing to move or delete
+            m.addAction(_("export as PDF…"), lambda: self.export_pdf(nid))   # a book note: nothing to move or delete
         elif nid:
+            m.addAction(_("export as PDF…"), lambda: self.export_pdf(nid))
             if self.cfg.get("folders"):
                 sub = m.addMenu(_("move to"))
                 here = (self.store.get(nid) or {}).get("folder", "")
@@ -3053,9 +3234,13 @@ class Main(QtWidgets.QMainWindow):
         self.narrow_menu(m)
         if self.configured():
             m.addAction(_("sync now"), self.sync)
+        if self.current is not None and self.store.is_book(self.current):
+            m.addSeparator()
+            m.addAction(_("export as PDF…"), lambda nid=self.current: self.export_pdf(nid))
         if self.current is not None and not self.store.is_book(self.current):
             m.addSeparator()
             nid = self.current
+            m.addAction(_("export as PDF…"), lambda: self.export_pdf(nid))
             m.addAction(_("insert a picture…"), self.insert_picture_file)
             m.addAction(_("insert a drawing"), lambda: self.draw(None, None))
             self.tags_menu(m, nid)

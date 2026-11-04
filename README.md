@@ -17,6 +17,7 @@ desktop twin. No formatting, no account with the app.
 - A new computer: *export credentials…* writes a JSON file that Reader's Calendar, Tasks and Notes share; *import credentials…* reads it back. It holds passwords in clear: delete it once imported.
 - Tags: a word with # in front, anywhere in a note (`#work`), is a tag. ⋯ › **tags** lists them with their counts and shows the notes carrying one tag or several; a note's right click or ⋯ › **tags…** adds or removes them. Plain text, so they travel with the note to the phone.
 - Pictures and drawings: ⋯ or a right click › **insert a picture…**, or paste or drop an image, puts it on its own line in the note; **✎ drawing** under the list starts a note with a drawing, ⋯ › **insert a drawing** adds one at the cursor. A drawing takes a pen's pressure, its eraser end erases; double-click a drawing to draw on it again. In the `.txt` a picture is one line, `![](.pictures/<name>)`, its file in the `.pictures` subfolder: see [docs/PICTURES.md](docs/PICTURES.md).
+- Export as PDF: a note's ⋯ or right click › **export as PDF…** writes it as A4 pages — its title, its text and its pictures in place, page numbers at the foot — in black on white, to the file you choose (your Documents folder first, named `readers-notes-<title>.pdf`).
 - Ctrl+T flips white on black / black on white; Ctrl+= and Ctrl+- change the text size.
 - English, French, German, Spanish, Portuguese and Russian, following the system language.
 
