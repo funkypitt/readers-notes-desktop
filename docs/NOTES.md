@@ -141,3 +141,17 @@ and **also with a tag…** (⋯ or a right click on the list) narrows them to on
 above the list goes back: from the narrowed list to the tags, from the tags to where the list was.
 A search inside a narrowed list looks only at those notes. Tests: `tests/test_tags.py`.
 
+
+## Pictures and drawings
+
+A note stays a plain text file. A picture is a line of its own, `![](.pictures/<name>)`, and its
+file sits in the `.pictures` subfolder of the notes folder on the server (`pictures/` beside the
+notes on this computer). Inserted images are reduced to 1600 px on their long side (JPEG);
+drawings are PNG, black on white. A picture file is never rewritten: drawing on a drawing again
+saves a new file and the note's line follows. The sync sends what the server lacks, fetches
+what this computer lacks (« picture on its way » until then), and removes from the server a
+file no note has held for two days. The phone follows the same rules: [PICTURES.md](PICTURES.md).
+
+The drawing page: pen, eraser, undo (Ctrl+Z), and « done » or Esc to go back — leaving saves.
+A graphics tablet's pressure sets the width; its eraser end, or a side button held, erases; with
+the mouse, the right button erases.

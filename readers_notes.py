@@ -21,7 +21,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 
 
 def _app_dirs():
@@ -146,6 +146,20 @@ _TR = {
   "+ new note": "+ nouvelle note",
   "new note": "nouvelle note",
   "untitled": "sans titre",
+  'drawing': 'dessin',
+  'picture': 'image',
+  'picture on its way': 'image en route',
+  'draw on it': 'dessiner dessus',
+  'remove the picture': "retirer l'image",
+  'insert a picture…': 'insérer une image…',
+  'insert a drawing': 'insérer un dessin',
+  'new drawing': 'nouveau dessin',
+  '✎ drawing': '✎ dessin',
+  'pictures': 'images',
+  'pen': 'stylo',
+  'eraser': 'gomme',
+  'undo': 'annuler',
+  'done': 'terminé',
   "write here. The first line is the title.": "écrire ici. La première ligne est le titre.",
   "nothing yet. The first line of a note is its title.": "rien pour l'instant. La première ligne d'une note est son titre.",
   "nothing found": "rien trouvé",
@@ -212,6 +226,20 @@ _TR = {
   "+ new note": "+ neue Notiz",
   "new note": "neue Notiz",
   "untitled": "ohne Titel",
+  'drawing': 'Zeichnung',
+  'picture': 'Bild',
+  'picture on its way': 'Bild unterwegs',
+  'draw on it': 'darauf zeichnen',
+  'remove the picture': 'Bild entfernen',
+  'insert a picture…': 'Bild einfügen…',
+  'insert a drawing': 'Zeichnung einfügen',
+  'new drawing': 'neue Zeichnung',
+  '✎ drawing': '✎ Zeichnung',
+  'pictures': 'Bilder',
+  'pen': 'Stift',
+  'eraser': 'Radierer',
+  'undo': 'rückgängig',
+  'done': 'fertig',
   "write here. The first line is the title.": "hier schreiben. Die erste Zeile ist der Titel.",
   "nothing yet. The first line of a note is its title.": "noch nichts. Die erste Zeile einer Notiz ist ihr Titel.",
   "nothing found": "nichts gefunden",
@@ -278,6 +306,20 @@ _TR = {
   "+ new note": "+ nueva nota",
   "new note": "nueva nota",
   "untitled": "sin título",
+  'drawing': 'dibujo',
+  'picture': 'imagen',
+  'picture on its way': 'imagen en camino',
+  'draw on it': 'dibujar encima',
+  'remove the picture': 'quitar la imagen',
+  'insert a picture…': 'insertar una imagen…',
+  'insert a drawing': 'insertar un dibujo',
+  'new drawing': 'nuevo dibujo',
+  '✎ drawing': '✎ dibujo',
+  'pictures': 'imágenes',
+  'pen': 'lápiz',
+  'eraser': 'goma',
+  'undo': 'deshacer',
+  'done': 'listo',
   "write here. The first line is the title.": "escribe aquí. La primera línea es el título.",
   "nothing yet. The first line of a note is its title.": "nada todavía. La primera línea de una nota es su título.",
   "nothing found": "nada encontrado",
@@ -344,6 +386,20 @@ _TR = {
   "+ new note": "+ nova nota",
   "new note": "nova nota",
   "untitled": "sem título",
+  'drawing': 'desenho',
+  'picture': 'imagem',
+  'picture on its way': 'imagem a caminho',
+  'draw on it': 'desenhar por cima',
+  'remove the picture': 'remover a imagem',
+  'insert a picture…': 'inserir uma imagem…',
+  'insert a drawing': 'inserir um desenho',
+  'new drawing': 'novo desenho',
+  '✎ drawing': '✎ desenho',
+  'pictures': 'imagens',
+  'pen': 'caneta',
+  'eraser': 'borracha',
+  'undo': 'desfazer',
+  'done': 'concluído',
   "write here. The first line is the title.": "escreva aqui. A primeira linha é o título.",
   "nothing yet. The first line of a note is its title.": "nada ainda. A primeira linha de uma nota é o seu título.",
   "nothing found": "nada encontrado",
@@ -410,6 +466,20 @@ _TR = {
   "+ new note": "+ новая заметка",
   "new note": "новая заметка",
   "untitled": "без названия",
+  'drawing': 'рисунок',
+  'picture': 'изображение',
+  'picture on its way': 'изображение в пути',
+  'draw on it': 'рисовать поверх',
+  'remove the picture': 'убрать изображение',
+  'insert a picture…': 'вставить изображение…',
+  'insert a drawing': 'вставить рисунок',
+  'new drawing': 'новый рисунок',
+  '✎ drawing': '✎ рисунок',
+  'pictures': 'изображения',
+  'pen': 'перо',
+  'eraser': 'ластик',
+  'undo': 'отменить',
+  'done': 'готово',
   "write here. The first line is the title.": "пишите здесь. Первая строка — название.",
   "nothing yet. The first line of a note is its title.": "пока пусто. Первая строка заметки — её название.",
   "nothing found": "ничего не найдено",
@@ -486,10 +556,55 @@ def _(key, *args):
 _LINES = re.compile(r"\r\n|\n|\r")
 
 
+# ---- pictures: one line of its own, ![](.pictures/NAME), the file in the folder's .pictures ----
+# (docs/PICTURES.md — the same rule as the phone). The path always starts at the root of the
+# synced folder, whatever folder the note is in. A picture file is never rewritten.
+PICTURES_DIR = ".pictures"
+PICTURE_AGE_MS = 2 * 24 * 3600 * 1000     # unreferenced this long: removed (server and here)
+_PICTURE = re.compile(r"^!\[[^\]]*\]\(\.pictures/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpg|jpeg|webp))\)$", re.IGNORECASE)
+
+
+def picture_of_line(line):
+    """The picture's file name when this line is a picture line, else None."""
+    m = _PICTURE.match(line.strip())
+    return m.group(1) if m else None
+
+
+def pictures_of(text):
+    """The picture names of a text, in order, each once."""
+    out = []
+    for line in _LINES.split(text):
+        n = picture_of_line(line)
+        if n and n not in out:
+            out.append(n)
+    return out
+
+
+def plain_text(text):
+    """The text without its picture lines: what is searched, previewed, shared."""
+    if "](.pictures/" not in text:
+        return text
+    return "\n".join(l for l in _LINES.split(text) if picture_of_line(l) is None)
+
+
+def picture_line(name):
+    return f"![]({PICTURES_DIR}/{name})"
+
+
+def new_picture_name(kind):
+    """kind "drawing" (PNG) or "picture" (JPEG)."""
+    ext = "png" if kind == "drawing" else "jpg"
+    return f"{kind}-{datetime.now():%Y%m%d-%H%M%S}-{random.randrange(0x10000):04x}.{ext}"
+
+
+def picture_kind(name):
+    return "drawing" if name.lower().startswith("drawing-") else "picture"
+
+
 def title_of(text):
     for line in _LINES.split(text):
         line = line.strip()
-        if line:
+        if line and picture_of_line(line) is None:
             # the phone takes 80 UTF-16 units; count the same way so both name the file alike
             return line.encode("utf-16-le")[:160].decode("utf-16-le", "ignore")
     return ""
@@ -611,6 +726,7 @@ class Store:
     def __init__(self, root):
         self.dir = os.path.join(root, "notes")
         os.makedirs(self.dir, exist_ok=True)
+        self.pictures_dir = os.path.join(root, "pictures")
         self.index_file = os.path.join(root, "notes.json")
         self.lock = threading.RLock()
         self.on_change = None
@@ -631,6 +747,53 @@ class Store:
         self.gone_folders = [g for g in self.gone_folders if g != BOOKS_FOLDER]
         # the folder URL the notes were last synced with; None before any sync
         self.place = data.get("place")
+
+    # ---- pictures (docs/PICTURES.md) -----------------------------------------------------
+
+    def picture_path(self, name):
+        return os.path.join(self.pictures_dir, name)
+
+    def has_picture(self, name):
+        return os.path.isfile(self.picture_path(name))
+
+    def save_picture(self, name, data):
+        os.makedirs(self.pictures_dir, exist_ok=True)
+        tmp = self.picture_path(name) + ".tmp"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, self.picture_path(name))
+
+    def picture_bytes(self, name):
+        with open(self.picture_path(name), "rb") as f:
+            return f.read()
+
+    def local_pictures(self):
+        try:
+            return {n for n in os.listdir(self.pictures_dir) if picture_of_line(picture_line(n))}
+        except OSError:
+            return set()
+
+    def referenced_pictures(self):
+        """Every picture a note here holds (tombstones aside)."""
+        out = set()
+        for n in self.all():
+            if not n.get("deleted"):
+                out.update(pictures_of(self.text(n["id"])))
+        return out
+
+    def forget_unused_pictures(self, now=None, keep=()):
+        """A picture no note here holds any more, for two days: its file goes. Returns how many."""
+        now = now if now is not None else time.time()
+        used = self.referenced_pictures() | set(keep)
+        gone = 0
+        for name in self.local_pictures() - used:
+            try:
+                if (now - os.path.getmtime(self.picture_path(name))) * 1000 > PICTURE_AGE_MS:
+                    os.remove(self.picture_path(name))
+                    gone += 1
+            except OSError:
+                pass
+        return gone
 
     def _save_index(self):
         tmp = self.index_file + ".tmp"
@@ -684,7 +847,7 @@ class Store:
         return title_of(self.text(nid))
 
     def preview(self, nid):
-        lines = [l.strip() for l in _LINES.split(self.text(nid)) if l.strip()]
+        lines = [l.strip() for l in _LINES.split(plain_text(self.text(nid))) if l.strip()]
         # the line after the title, unless it only holds tags (they show beside the preview)
         rest = [l for l in lines[1:] if not _is_tag_line(l)]
         return rest[0] if rest else ""
@@ -1014,6 +1177,14 @@ class WebDav:
         except ET.ParseError:
             return None
 
+    def get_bytes(self, url):
+        """A picture's bytes; None when it is not there (yet)."""
+        r = self._req("GET", url, allow=(404,))
+        return None if r.status_code == 404 else r.content
+
+    def put_bytes(self, url, data, content_type):
+        self._req("PUT", url, data, content_type=content_type)
+
     def delete(self, url):
         self._req("DELETE", url, allow=(404,))
 
@@ -1195,7 +1366,54 @@ def sync_run(store, cfg, timeout=30):
         if g in server_dirs and not any(not f["dir"] for f in dav.list(dir_url(g))):
             dav.delete(dir_url(g))
         store.folder_removed_there(g)
-    return up, down, deleted
+    p_up, p_down, _p_failed = sync_pictures(store, dav, root, entries)
+    return up + p_up, down + p_down, deleted
+
+
+def sync_pictures(store, dav, root, entries, now_ms=None):
+    """The pictures the notes hold, after the notes themselves (docs/PICTURES.md): sent when the
+    server lacks them, fetched when this computer does; on the server, a file no note holds for two
+    days goes. A failure here never fails the notes' sync: counted, tried again next time.
+    Returns (sent, fetched, failed)."""
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
+    sent = fetched = failed = 0
+    refs = store.referenced_pictures()
+    there = any(f["dir"] and f["name"] == PICTURES_DIR for f in entries)
+    if not refs and not there:
+        store.forget_unused_pictures(now_ms / 1000)
+        return 0, 0, 0
+    pdir = root + PICTURES_DIR + "/"
+    try:
+        listed = {f["name"]: f for f in dav.list(pdir) if not f["dir"]} if there else {}
+    except Exception:
+        return 0, 0, 1
+    local = store.local_pictures()
+    for name in sorted(refs):
+        try:
+            if name in local and name not in listed:
+                if not there:
+                    dav.mkcol(pdir)
+                    there = True
+                dav.put_bytes(pdir + encode_segment(name), store.picture_bytes(name),
+                              "image/png" if name.lower().endswith(".png") else "image/webp" if name.lower().endswith(".webp") else "image/jpeg")
+                sent += 1
+            elif name not in local:
+                data = dav.get_bytes(pdir + encode_segment(name))
+                if data is not None:          # not there yet: another device has not sent it
+                    store.save_picture(name, data)
+                    fetched += 1
+        except Exception:
+            failed += 1
+    for name, f in listed.items():
+        if name in refs or picture_of_line(picture_line(name)) is None:
+            continue
+        if f.get("modified") and now_ms - f["modified"] > PICTURE_AGE_MS:
+            try:
+                dav.delete(pdir + encode_segment(name))
+            except Exception:
+                failed += 1
+    store.forget_unused_pictures(now_ms / 1000)
+    return sent, fetched, failed
 
 
 # ------------------------------------------------------------------------------------------
@@ -1494,8 +1712,40 @@ class NoteDelegate(QtWidgets.QStyledItemDelegate):
             p.setPen(pen); p.setBrush(QtCore.Qt.NoBrush); p.drawPath(path)
 
 
+LINE_PROP = QtGui.QTextFormat.UserProperty + 1      # an image in the page: the note's line it stands for
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+
+
+def picture_from_image(img):
+    """An image brought into a note (a file, the clipboard): at most 1600 px on its long side, on
+    white, as JPEG quality 85 (docs/PICTURES.md). Returns the bytes, or None."""
+    if img is None or img.isNull():
+        return None
+    if max(img.width(), img.height()) > 1600:
+        img = img.scaled(1600, 1600, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+    flat = QtGui.QImage(img.size(), QtGui.QImage.Format_RGB32)
+    flat.fill(QtCore.Qt.white)
+    p = QtGui.QPainter(flat)
+    p.drawImage(0, 0, img)
+    p.end()
+    buf = QtCore.QBuffer()
+    buf.open(QtCore.QIODevice.WriteOnly)
+    flat.save(buf, "JPG", 85)
+    return bytes(buf.data())
+
+
+def read_image_file(path):
+    """The image of a file, turned the way its EXIF says."""
+    r = QtGui.QImageReader(path)
+    r.setAutoTransform(True)
+    img = r.read()
+    return None if img.isNull() else img
+
+
 class Editor(QtWidgets.QTextEdit):
-    """The note: plain text on a reading column, the phone's generous line height."""
+    """The note: plain text on a reading column, the phone's generous line height. A picture line
+    (docs/PICTURES.md) shows as its picture, alone on its line; text() gives the note's text back
+    exactly as it was read, picture lines included."""
 
     def __init__(self):
         super().__init__()
@@ -1503,30 +1753,65 @@ class Editor(QtWidgets.QTextEdit):
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.column = 680
+        self.store = None          # where the picture files are
+        self.host = None           # the window: inserting, drawing
+        self.quiet = False         # images redrawn: no typing to hear of
+        self.ink, self.dim = QtGui.QColor("#000"), QtGui.QColor("#888")
+        # the cursor just after a picture would type pictures: what it writes is always text
+        self.cursorPositionChanged.connect(self._text_format)
+
+    def _text_format(self):
+        if self.currentCharFormat().isImageFormat():
+            self.setCurrentCharFormat(QtGui.QTextCharFormat())
 
     def set_column(self, px):
         self.column = px
         self._margins()
+        self.refresh_images()
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._margins()
+        self.refresh_images()
 
     def _margins(self):
         side = max(36, (self.width() - self.column) // 2)
         self.setViewportMargins(side, 22, side, 22)
 
-    def insertFromMimeData(self, source):
-        """Pasted text goes in as typed text, so its lines keep the page's line height."""
-        if source.hasText():
-            self.textCursor().insertText(source.text())
+    # ---- the text, pictures included ----------------------------------------------------
 
-    def _spacing(self):
-        c = QtGui.QTextCursor(self.document())
-        c.select(QtGui.QTextCursor.Document)
-        fmt = QtGui.QTextBlockFormat()
-        fmt.setLineHeight(145, QtGui.QTextBlockFormat.ProportionalHeight)
-        c.mergeBlockFormat(fmt)
+    def has_images(self):
+        return "\ufffc" in self.document().toPlainText()
+
+    def text(self):
+        if not self.has_images():
+            return self.toPlainText()
+        lines = []
+        b = self.document().begin()
+        while b.isValid():
+            parts, cur = [], ""
+            it = b.begin()
+            while not it.atEnd():
+                f = it.fragment()
+                if f.isValid():
+                    fmt = f.charFormat()
+                    line = fmt.property(LINE_PROP) if fmt.isImageFormat() else None
+                    if line:
+                        # one character per image in the fragment
+                        for _i in range(f.length()):
+                            if cur:
+                                parts.append(cur)
+                            parts.append(line)
+                            cur = ""
+                    else:
+                        cur += f.text()
+                it += 1
+            if cur or not parts:
+                parts.append(cur)
+            lines.extend(parts)
+            b = b.next()
+        out = "\n".join(lines)
+        return out.replace("\u00a0", " ").replace("\u2028", "\n").replace("\u2029", "\n").replace("\ufdd0", "").replace("\ufdd1", "")
 
     def load(self, text, read_only=False):
         """`read_only`: a book note. Its text can still be selected and copied, with the keyboard too."""
@@ -1534,9 +1819,461 @@ class Editor(QtWidgets.QTextEdit):
         if read_only:
             self.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse | QtCore.Qt.TextSelectableByKeyboard)
         self.setUndoRedoEnabled(False)
+        self.setCurrentCharFormat(QtGui.QTextCharFormat())
         self.setPlainText(text)
+        if "](.pictures/" in text:
+            b = self.document().begin()
+            while b.isValid():
+                name = picture_of_line(b.text())
+                if name:
+                    c = QtGui.QTextCursor(b)
+                    c.movePosition(QtGui.QTextCursor.EndOfBlock, QtGui.QTextCursor.KeepAnchor)
+                    c.insertImage(self._image_format(name, b.text()))
+                b = b.next()
         self._spacing()
         self.setUndoRedoEnabled(True)
+
+    def _images_in(self, c):
+        """Within an edit block: every picture line of the page turned into its picture."""
+        b = self.document().begin()
+        while b.isValid():
+            name = picture_of_line(b.text()) if "\ufffc" not in b.text() else None
+            if name:
+                line = b.text()
+                bc = QtGui.QTextCursor(b)
+                bc.joinPreviousEditBlock()
+                bc.movePosition(QtGui.QTextCursor.EndOfBlock, QtGui.QTextCursor.KeepAnchor)
+                bc.insertImage(self._image_format(name, line))
+                bc.endEditBlock()
+            b = b.next()
+
+    def replace_all(self, text):
+        """The whole page replaced by this text, pictures and line height included: one step to undo."""
+        c = self.textCursor()
+        c.beginEditBlock()
+        c.select(QtGui.QTextCursor.Document)
+        c.insertText(text)
+        self._images_in(c)
+        self._spacing()
+        c.endEditBlock()
+
+    def _spacing(self):
+        c = QtGui.QTextCursor(self.document())
+        c.select(QtGui.QTextCursor.Document)
+        fmt = QtGui.QTextBlockFormat()
+        fmt.setLineHeight(145, QtGui.QTextBlockFormat.ProportionalHeight)
+        c.mergeBlockFormat(fmt)
+        # a picture's line is as tall as the picture: no extra room under it
+        if "\ufffc" in self.document().toPlainText():
+            one = QtGui.QTextBlockFormat()
+            one.setLineHeight(100, QtGui.QTextBlockFormat.ProportionalHeight)
+            b = self.document().begin()
+            while b.isValid():
+                if "\ufffc" in b.text():
+                    QtGui.QTextCursor(b).mergeBlockFormat(one)
+                b = b.next()
+
+    def _image_format(self, name, line):
+        fmt = QtGui.QTextImageFormat()
+        fmt.setName("pic:" + name)
+        fmt.setProperty(LINE_PROP, line)
+        self._resource(name)
+        return fmt
+
+    def _room(self):
+        w = self.viewport().width() - 2 * int(self.document().documentMargin()) - 2
+        h = self.viewport().height() - 2 * int(self.document().documentMargin())
+        return max(120, min(w, self.column)), max(160, h)
+
+    def _resource(self, name):
+        """The picture at the page's width (never larger than itself), or a light frame saying it is on its way."""
+        w, h = self._room()
+        img = QtGui.QImage()
+        if self.store is not None and self.store.has_picture(name):
+            img = QtGui.QImage(self.store.picture_path(name))
+        if not img.isNull():
+            if img.width() > w or img.height() > h:
+                img = img.scaled(w, h, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        else:
+            img = QtGui.QImage(w, max(60, QtGui.QFontMetrics(self.font()).height() * 3), QtGui.QImage.Format_ARGB32_Premultiplied)
+            img.fill(QtCore.Qt.transparent)
+            p = QtGui.QPainter(img)
+            p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+            pen = QtGui.QPen(self.dim, 1, QtCore.Qt.DashLine)
+            p.setPen(pen)
+            p.drawRoundedRect(QtCore.QRectF(0.5, 0.5, img.width() - 1, img.height() - 1), 8, 8)
+            p.setFont(self.font())
+            p.drawText(img.rect(), QtCore.Qt.AlignCenter, _("picture on its way"))
+            p.end()
+        self.document().addResource(QtGui.QTextDocument.ImageResource, QtCore.QUrl("pic:" + name), img)
+
+    def image_names(self):
+        out = []
+        b = self.document().begin()
+        while b.isValid():
+            it = b.begin()
+            while not it.atEnd():
+                f = it.fragment()
+                if f.isValid() and f.charFormat().isImageFormat():
+                    n = f.charFormat().toImageFormat().name()
+                    if n.startswith("pic:"):
+                        out.append(n[4:])
+                it += 1
+            b = b.next()
+        return out
+
+    def refresh_images(self):
+        """Every picture drawn again at the page's width, or from its file just arrived. Neither the
+        text, the cursor nor the undo history moves."""
+        names = self.image_names()
+        if not names:
+            return
+        self.quiet = True
+        try:
+            for n in set(names):
+                self._resource(n)
+            self.document().markContentsDirty(0, self.document().characterCount())
+            self.viewport().update()
+        finally:
+            self.quiet = False
+
+    # ---- inserting, removing ----------------------------------------------------------------
+
+    def insert_picture(self, name):
+        """The picture at the cursor, on a line of its own; one step to undo."""
+        c = self.textCursor()
+        c.beginEditBlock()
+        c.removeSelectedText()
+        if c.positionInBlock() > 0:
+            c.insertBlock()
+        c.insertImage(self._image_format(name, picture_line(name)))
+        c.insertBlock(c.blockFormat(), QtGui.QTextCharFormat())
+        self._spacing()
+        c.endEditBlock()
+        self.setTextCursor(c)
+
+    def image_at(self, pos):
+        """(cursor on the image character, name, line) for the picture under this point of the viewport, or None."""
+        c = self.cursorForPosition(pos)
+        b = c.block()
+        layout = self.document().documentLayout()
+        rect = layout.blockBoundingRect(b).translated(0, -self.verticalScrollBar().value())
+        if not rect.contains(QtCore.QPointF(pos)):
+            return None
+        it = b.begin()
+        while not it.atEnd():
+            f = it.fragment()
+            if f.isValid() and f.charFormat().isImageFormat() and f.charFormat().property(LINE_PROP):
+                fmt = f.charFormat().toImageFormat()
+                ic = QtGui.QTextCursor(self.document())
+                ic.setPosition(f.position())
+                ic.setPosition(f.position() + 1, QtGui.QTextCursor.KeepAnchor)
+                return ic, fmt.name()[4:], fmt.property(LINE_PROP)
+            it += 1
+        return None
+
+    def remove_image(self, ic):
+        """The picture and its line; one step to undo."""
+        c = QtGui.QTextCursor(ic)
+        c.beginEditBlock()
+        c.removeSelectedText()
+        if c.block().length() == 1:          # its line is empty now: it goes too
+            if c.block().next().isValid():
+                c.deleteChar()
+            elif c.block().previous().isValid():
+                c.deletePreviousChar()
+        c.endEditBlock()
+
+    def replace_image(self, ic, name):
+        c = QtGui.QTextCursor(ic)
+        c.beginEditBlock()
+        c.insertImage(self._image_format(name, picture_line(name)))
+        c.endEditBlock()
+
+    def contextMenuEvent(self, e):
+        m = self.createStandardContextMenu(e.pos())
+        if self.host is not None and not self.isReadOnly():
+            m.addSeparator()
+            hit = self.image_at(self.viewport().mapFromGlobal(e.globalPos()))
+            if hit:
+                ic, name, _line = hit
+                if picture_kind(name) == "drawing":
+                    m.addAction(_("draw on it"), lambda: self.host.draw(ic, name))
+                m.addAction(_("remove the picture"), lambda: self.remove_image(ic))
+            else:
+                m.addAction(_("insert a picture…"), self.host.insert_picture_file)
+                m.addAction(_("insert a drawing"), lambda: self.host.draw(None, None))
+        m.exec_(e.globalPos())
+
+    def mouseDoubleClickEvent(self, e):
+        hit = self.image_at(e.pos()) if self.host is not None and not self.isReadOnly() else None
+        if hit and picture_kind(hit[1]) == "drawing":
+            self.host.draw(hit[0], hit[1])
+            return
+        super().mouseDoubleClickEvent(e)
+
+    def createMimeDataFromSelection(self):
+        """Copied text leaves the pictures out (the image too when one picture alone is chosen)."""
+        md = super().createMimeDataFromSelection()
+        sel = self.textCursor().selection().toPlainText()
+        if "\ufffc" in sel:
+            out = QtCore.QMimeData()
+            out.setText("\n".join(l.replace("\ufffc", "") for l in sel.split("\n") if l.strip() != "\ufffc" or not l.strip()))
+            if sel.strip() == "\ufffc":
+                c = self.textCursor()
+                pos = min(c.position(), c.anchor())
+                c2 = QtGui.QTextCursor(self.document()); c2.setPosition(pos + 1)
+                fmt = c2.charFormat()
+                if fmt.isImageFormat():
+                    name = fmt.toImageFormat().name()[4:]
+                    if self.store is not None and self.store.has_picture(name):
+                        out.setImageData(QtGui.QImage(self.store.picture_path(name)))
+            return out
+        return md
+
+    def canInsertFromMimeData(self, source):
+        return source.hasImage() or source.hasUrls() or super().canInsertFromMimeData(source)
+
+    def insertFromMimeData(self, source):
+        """Pasted text goes in as typed text, so its lines keep the page's line height. An image
+        (copied, or image files dropped) goes in as a picture of the note."""
+        if self.host is not None and not self.isReadOnly():
+            files = [u.toLocalFile() for u in source.urls() if u.isLocalFile() and u.toLocalFile().lower().endswith(IMAGE_EXTS)] if source.hasUrls() else []
+            if files:
+                for f in files:
+                    self.host.insert_picture_image(read_image_file(f))
+                return
+            if source.hasImage():
+                self.host.insert_picture_image(QtGui.QImage(source.imageData()))
+                return
+        if source.hasText():
+            self.textCursor().insertText(source.text())
+
+
+class Sheet(QtWidgets.QWidget):
+    """A sheet of paper to draw on: black ink on white, pen first (docs/PICTURES.md). A pen's
+    pressure sets the width; its eraser end, or a side button held, erases (paints white); the
+    mouse draws at a fixed width, its right button erases. The finished strokes are painted into
+    the sheet itself; undo paints the sheet again from where it started."""
+
+    def __init__(self):
+        super().__init__()
+        self.setAttribute(QtCore.Qt.WA_TabletTracking, False)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.setCursor(QtCore.Qt.CrossCursor)
+        self.bg, self.rule = QtGui.QColor("#fff"), QtGui.QColor("#ccc")
+        self.erasing = False              # the tool chosen above the sheet
+        self.on_tool = None
+        self.start(None)
+
+    def start(self, image):
+        """A new sheet (None: 1600 × 1200) or a drawing to go on with."""
+        if image is None or image.isNull():
+            image = QtGui.QImage(1600, 1200, QtGui.QImage.Format_RGB32)
+            image.fill(QtCore.Qt.white)
+        else:
+            if max(image.width(), image.height()) > 2000:
+                image = image.scaled(2000, 2000, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            flat = QtGui.QImage(image.size(), QtGui.QImage.Format_RGB32)
+            flat.fill(QtCore.Qt.white)
+            p = QtGui.QPainter(flat)
+            p.drawImage(0, 0, image)
+            p.end()
+            image = flat
+        self.base = image.copy()
+        self.image = image
+        self.strokes = []                 # (erasing, [(x, y, width)…]) — kept for undo
+        self.live = None                  # the stroke under the pen
+        self.tablet = False               # a pen is on the sheet: the mouse events it brings are not ours
+        self.unit = max(2.0, self.image.width() / 400)
+        self.update()
+
+    def changed(self):
+        return bool(self.strokes)
+
+    # ---- where the sheet sits -------------------------------------------------------------
+
+    def _frame(self):
+        m = 12
+        w, h = self.width() - 2 * m, self.height() - 2 * m
+        k = min(w / self.image.width(), h / self.image.height())
+        k = max(k, 0.01)
+        dw, dh = self.image.width() * k, self.image.height() * k
+        return QtCore.QRectF(m + (w - dw) / 2, m + (h - dh) / 2, dw, dh), k
+
+    def _to_sheet(self, pos):
+        r, k = self._frame()
+        return (pos.x() - r.left()) / k, (pos.y() - r.top()) / k
+
+    def paintEvent(self, _e):
+        p = QtGui.QPainter(self)
+        p.fillRect(self.rect(), self.bg)
+        r, _k = self._frame()
+        p.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
+        p.drawImage(r, self.image)
+        p.setPen(QtGui.QPen(self.rule, 1))
+        p.setBrush(QtCore.Qt.NoBrush)
+        p.drawRect(r.adjusted(-0.5, -0.5, 0.5, 0.5))
+        p.end()
+
+    # ---- strokes ------------------------------------------------------------------------
+
+    def _pen(self, erasing, width):
+        return QtGui.QPen(QtGui.QColor("#fff" if erasing else "#000"), width, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin)
+
+    def _paint_step(self, p, erasing, pts, i, last=False):
+        """The piece of the stroke that point i completes: a curve through the midpoints."""
+        def mid(a, b):
+            return QtCore.QPointF((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        if i == 0:
+            if last:      # a dot
+                x, y, w = pts[0]
+                p.setPen(QtCore.Qt.NoPen)
+                p.setBrush(QtGui.QColor("#fff" if erasing else "#000"))
+                p.drawEllipse(QtCore.QPointF(x, y), w / 2, w / 2)
+            return
+        a = QtCore.QPointF(pts[0][0], pts[0][1]) if i == 1 else mid(pts[i - 2], pts[i - 1])
+        b = mid(pts[i - 1], pts[i])
+        path = QtGui.QPainterPath(a)
+        path.quadTo(QtCore.QPointF(pts[i - 1][0], pts[i - 1][1]), b)
+        if last:
+            path.lineTo(QtCore.QPointF(pts[i][0], pts[i][1]))
+        w = (pts[i - 1][2] + pts[i][2]) / 2
+        p.setPen(self._pen(erasing, w))
+        p.setBrush(QtCore.Qt.NoBrush)
+        p.drawPath(path)
+
+    def _painter(self):
+        p = QtGui.QPainter(self.image)
+        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        return p
+
+    def begin(self, pos, width, erasing):
+        x, y = self._to_sheet(pos)
+        self.live = (erasing, [(x, y, width)])
+        self.update()
+
+    def extend(self, pos, width):
+        if self.live is None:
+            return
+        x, y = self._to_sheet(pos)
+        pts = self.live[1]
+        if abs(x - pts[-1][0]) + abs(y - pts[-1][1]) < 0.5:
+            return
+        pts.append((x, y, width))
+        p = self._painter()
+        self._paint_step(p, self.live[0], pts, len(pts) - 1)
+        p.end()
+        self.update()
+
+    def end(self):
+        if self.live is None:
+            return
+        erasing, pts = self.live
+        p = self._painter()
+        self._paint_step(p, erasing, pts, len(pts) - 1, last=True)
+        p.end()
+        self.strokes.append(self.live)
+        self.live = None
+        self.update()
+
+    def undo(self):
+        if self.live is not None or not self.strokes:
+            return
+        self.strokes.pop()
+        self.image = self.base.copy()
+        p = self._painter()
+        for erasing, pts in self.strokes:
+            for i in range(len(pts)):
+                self._paint_step(p, erasing, pts, i, last=i == len(pts) - 1)
+        p.end()
+        self.update()
+
+    def png(self):
+        """The drawing as PNG bytes (grey levels: black ink, white paper)."""
+        buf = QtCore.QBuffer()
+        buf.open(QtCore.QIODevice.WriteOnly)
+        self.image.convertToFormat(QtGui.QImage.Format_Grayscale8).save(buf, "PNG")
+        return bytes(buf.data())
+
+    # ---- the pen, the mouse -------------------------------------------------------------
+
+    def tabletEvent(self, e):
+        t = e.type()
+        if t == QtCore.QEvent.TabletPress:
+            self.tablet = True
+            erasing = self.erasing or e.pointerType() == QtGui.QTabletEvent.Eraser or bool(e.buttons() & (QtCore.Qt.RightButton | QtCore.Qt.MiddleButton))
+            self.begin(e.posF(), self._width(erasing, e.pressure()), erasing)
+        elif t == QtCore.QEvent.TabletMove and self.live is not None:
+            self.extend(e.posF(), self._width(self.live[0], e.pressure()))
+        elif t == QtCore.QEvent.TabletRelease:
+            self.end()
+            self.tablet = False
+        e.accept()
+
+    def _width(self, erasing, pressure=None):
+        if erasing:
+            return self.unit * 6
+        if pressure is None:
+            return self.unit
+        return self.unit * (0.35 + 1.3 * max(0.0, min(1.0, pressure)))
+
+    def mousePressEvent(self, e):
+        if self.tablet or self.live is not None:
+            return
+        if e.button() in (QtCore.Qt.LeftButton, QtCore.Qt.RightButton):
+            erasing = self.erasing or e.button() == QtCore.Qt.RightButton
+            self.begin(e.localPos(), self._width(erasing), erasing)
+
+    def mouseMoveEvent(self, e):
+        if not self.tablet and self.live is not None:
+            self.extend(e.localPos(), self._width(self.live[0]))
+
+    def mouseReleaseEvent(self, e):
+        if not self.tablet:
+            self.end()
+
+
+class DrawPage(QtWidgets.QWidget):
+    """The page beside the list while drawing: a line with the tools, then the sheet."""
+
+    def __init__(self, on_done):
+        super().__init__()
+        box = QtWidgets.QVBoxLayout(self)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(0)
+        head = QtWidgets.QHBoxLayout()
+        head.setContentsMargins(36, 12, 24, 12)
+        head.setSpacing(22)
+        self.back = Clickable("←  " + _("done"), "dim")
+        self.back.clicked.connect(on_done)
+        head.addWidget(self.back)
+        head.addStretch(1)
+        self.pen = Clickable("", "")
+        self.eraser = Clickable("", "")
+        self.undo = Clickable(_("undo"), "")
+        self.pen.clicked.connect(lambda: self.tool(False))
+        self.eraser.clicked.connect(lambda: self.tool(True))
+        for w in (self.pen, self.eraser, self.undo):
+            head.addWidget(w)
+        box.addLayout(head)
+        rule = QtWidgets.QFrame()
+        rule.setObjectName("sep")
+        rule.setFixedHeight(1)
+        box.addWidget(rule)
+        self.sheet = Sheet()
+        box.addWidget(self.sheet, 1)
+        self.undo.clicked.connect(self.sheet.undo)
+        sc = QtWidgets.QShortcut(QtGui.QKeySequence.Undo, self, self.sheet.undo)
+        sc.setContext(QtCore.Qt.WidgetWithChildrenShortcut)
+        esc = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), self, on_done)
+        esc.setContext(QtCore.Qt.WidgetWithChildrenShortcut)
+        self.tool(False)
+
+    def tool(self, erasing):
+        self.sheet.erasing = erasing
+        self.pen.setText(("○ " if erasing else "● ") + _("pen"))
+        self.eraser.setText(("● " if erasing else "○ ") + _("eraser"))
 
 
 def scrolling_page(window):
@@ -1738,9 +2475,17 @@ class Main(QtWidgets.QMainWindow):
         self.list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.list.customContextMenuRequested.connect(self.list_menu)
         left.addWidget(self.list, 1)
+        rows = QtWidgets.QHBoxLayout()
+        rows.setContentsMargins(0, 0, 0, 0)
+        rows.setSpacing(0)
         self.new_row = Clickable(_("+ new note"), "newrow")
         self.new_row.clicked.connect(self.new_note)
-        left.addWidget(self.new_row)
+        rows.addWidget(self.new_row, 1)
+        self.draw_row = Clickable(_("✎ drawing"), "newrow")
+        self.draw_row.setToolTip(_("new drawing"))
+        self.draw_row.clicked.connect(self.new_drawing)
+        rows.addWidget(self.draw_row, 0)
+        left.addLayout(rows)
         bottom = QtWidgets.QHBoxLayout()
         bottom.setContentsMargins(22, 0, 16, 12)
         self.status = Clickable("", "dim")
@@ -1757,8 +2502,10 @@ class Main(QtWidgets.QMainWindow):
         vrule.setFixedWidth(1)
         outer.addWidget(vrule)
 
-        # Right: the note's title line with ⋯, a rule, the page
-        right = QtWidgets.QVBoxLayout()
+        # Right: the note's title line with ⋯, a rule, the page — or, while drawing, the sheet
+        self.stack = QtWidgets.QStackedWidget()
+        note_page = QtWidgets.QWidget()
+        right = QtWidgets.QVBoxLayout(note_page)
         right.setContentsMargins(0, 0, 0, 0)
         right.setSpacing(0)
         head = QtWidgets.QHBoxLayout()
@@ -1778,7 +2525,13 @@ class Main(QtWidgets.QMainWindow):
         self.editor.setPlaceholderText(_("write here. The first line is the title."))
         self.editor.textChanged.connect(self.typed)
         right.addWidget(self.editor, 1)
-        outer.addLayout(right, 1)
+        self.stack.addWidget(note_page)
+        self.draw_page = DrawPage(self.finish_drawing)
+        self.stack.addWidget(self.draw_page)
+        self.drawing = None      # while drawing: (note id or None for a new note, picture name drawn on or None)
+        outer.addWidget(self.stack, 1)
+        self.editor.store = self.store
+        self.editor.host = self
 
         self.save_timer = QtCore.QTimer(self, singleShot=True, interval=SAVE_MS, timeout=self.flush)
         self.idle_timer = QtCore.QTimer(self, singleShot=True, interval=IDLE_SYNC_SECONDS * 1000, timeout=self.sync_if_dirty)
@@ -1802,6 +2555,8 @@ class Main(QtWidgets.QMainWindow):
             self.open_note(start)
         self.editor.setFocus()
         self.update_status()
+        if not self.configured():
+            self.store.forget_unused_pictures()
         if self.configured():
             QtCore.QTimer.singleShot(0, self.sync)
         elif not self.cfg.get("asked"):
@@ -1883,6 +2638,11 @@ class Main(QtWidgets.QMainWindow):
         self.left.setFixedWidth(max(280, s * 24))
         page = QtGui.QFont(family)
         page.setPointSize(s + 3)
+        self.editor.ink, self.editor.dim = QtGui.QColor(fg), QtGui.QColor(fg)
+        self.editor.dim.setAlphaF(0.55)
+        self.draw_page.sheet.bg = QtGui.QColor(bg)
+        self.draw_page.sheet.rule = QtGui.QColor(fg)
+        self.draw_page.sheet.rule.setAlphaF(0.25)
         self.editor.set_column(QtGui.QFontMetrics(page).averageCharWidth() * 72)
         self.list.doItemsLayout()
         self.list.viewport().update()
@@ -1960,7 +2720,7 @@ class Main(QtWidgets.QMainWindow):
         inside = self.place if self.place not in (None, FOLDERS) and not self.tag_filter else None
         wanted = set(self.tag_filter)
         notes = [n for n in self.store.live()
-                 if (inside is None or q or n.get("folder", "") == inside) and (not q or q in self.store.text(n["id"]).lower())
+                 if (inside is None or q or n.get("folder", "") == inside) and (not q or q in plain_text(self.store.text(n["id"])).lower())
                  and (not wanted or wanted <= set(tags_of(self.store.text(n["id"]))))]
         mark = self.configured()
         if not notes:
@@ -1973,13 +2733,21 @@ class Main(QtWidgets.QMainWindow):
             where = f" · {_('books') if n['folder'] == BOOKS_FOLDER else n['folder']}" if folders_on and inside is None and n.get("folder") else ""
             tags = tags_of(self.store.text(nid))
             sub = when_label(n["modified"]) + where + (" · " + tags_label(tags) if tags else "") + (f" · {preview}" if preview else "") + (" · ✎" if n.get("dirty") and mark else "")
-            item = QtWidgets.QListWidgetItem(self.store.title(nid) or _("untitled"))
+            item = QtWidgets.QListWidgetItem(self.title_shown(nid))
             item.setData(QtCore.Qt.UserRole, nid)
             item.setData(QtCore.Qt.UserRole + 1, sub)
             self.list.addItem(item)
             if nid == self.current:
                 self.list.setCurrentItem(item)
         self.list.blockSignals(False)
+
+    def title_shown(self, nid):
+        """The title, or for a note of pictures only « drawing » / « picture » by its first one."""
+        t = self.store.title(nid)
+        if t:
+            return t
+        pics = pictures_of(self.store.text(nid))
+        return _(picture_kind(pics[0])) if pics else _("untitled")
 
     def to_folders(self):
         """The line above the list: back to the folders (and out of a search)."""
@@ -2025,19 +2793,15 @@ class Main(QtWidgets.QMainWindow):
         """The tag added to the note, or taken off it when it carries it. The open note changes in the
         page itself (one step to undo); another one is written to the store."""
         self.flush()
-        text = self.editor.toPlainText() if nid == self.current else self.store.text(nid)
+        text = self.editor.text() if nid == self.current else self.store.text(nid)
         new = tag_remove(text, tag) if tag in tags_of(text) else tag_add(text, tag)
         if new == text:
             return
         if nid == self.current:
+            pos = self.editor.textCursor().position()
+            self.editor.replace_all(new)     # the text, its pictures and line height: one step to undo
             c = self.editor.textCursor()
-            pos = c.position()
-            c.beginEditBlock()              # the text and its line height: one step to undo
-            c.select(QtGui.QTextCursor.Document)
-            c.insertText(new)
-            self.editor._spacing()
-            c.endEditBlock()
-            c.setPosition(min(pos, len(new)))
+            c.setPosition(min(pos, self.editor.document().characterCount() - 1))
             self.editor.setTextCursor(c)
             self.flush()
         else:
@@ -2053,7 +2817,7 @@ class Main(QtWidgets.QMainWindow):
     def tags_menu(self, menu, nid):
         """The submenu « tags… » of a note: every known tag, ● when the note carries it, then « + new tag… »."""
         sub = menu.addMenu(_("tags…"))
-        mine = set(tags_of(self.editor.toPlainText() if nid == self.current else self.store.text(nid)))
+        mine = set(tags_of(self.editor.text() if nid == self.current else self.store.text(nid)))
         for tag, _n in tags_count(self.store.text(n["id"]) for n in self.store.live()):
             a = sub.addAction(("● " if tag in mine else "○ ") + "#" + tag)
             a.triggered.connect(lambda _c=False, t=tag: self.toggle_tag(nid, t))
@@ -2122,6 +2886,7 @@ class Main(QtWidgets.QMainWindow):
             m.addAction(_("delete"), lambda: self.delete_note(nid))
         else:
             m.addAction(_("+ new note"), self.new_note)
+            m.addAction(_("new drawing"), self.new_drawing)
             m.addAction(_("tags"), self.to_tags)
             self.narrow_menu(m)
         m.exec_(self.list.mapToGlobal(pos))
@@ -2165,6 +2930,7 @@ class Main(QtWidgets.QMainWindow):
     # ---- the note ----------------------------------------------------------------------
 
     def open_note(self, nid):
+        self.finish_drawing()
         self.leave_note()
         self.current = nid
         self.loading = True
@@ -2189,9 +2955,9 @@ class Main(QtWidgets.QMainWindow):
         self.sync_if_dirty()
 
     def typed(self):
-        if self.loading or self.editor.isReadOnly():
+        if self.loading or self.editor.quiet or self.editor.isReadOnly():
             return
-        text = self.editor.toPlainText()
+        text = self.editor.text()
         if self.current is None:
             if not text.strip():
                 return
@@ -2208,11 +2974,12 @@ class Main(QtWidgets.QMainWindow):
         if not self.pending or self.current is None:
             return
         self.pending = False
-        text = self.editor.toPlainText()
+        text = self.editor.text()
         self.store.save(self.current, text, self.base)
         self.base = text
 
     def new_note(self):
+        self.finish_drawing()
         self.leave_note()
         self.find.blockSignals(True)
         self.find.clear()
@@ -2258,7 +3025,7 @@ class Main(QtWidgets.QMainWindow):
                     self.head.setText("")
             else:
                 text = self.store.text(self.current)
-                if text != self.editor.toPlainText():
+                if text != self.editor.text():
                     cursor = min(self.editor.textCursor().position(), len(text))
                     scroll = self.editor.verticalScrollBar().value()
                     self.loading = True
@@ -2270,7 +3037,7 @@ class Main(QtWidgets.QMainWindow):
                     self.editor.verticalScrollBar().setValue(scroll)
                     self.head.setText(title_of(text) or _("new note"))
                 self.base = text
-        elif self.current is None and not self.editor.toPlainText():
+        elif self.current is None and not self.editor.text():
             live = self.store.live()   # the first sync brought notes to an empty page
             if live:
                 self.open_note(live[0]["id"])
@@ -2280,6 +3047,7 @@ class Main(QtWidgets.QMainWindow):
     def show_menu(self):
         m = QtWidgets.QMenu(self)
         m.addAction(_("+ new note"), self.new_note)
+        m.addAction(_("new drawing"), self.new_drawing)
         m.addAction(_("find"), self.focus_find)
         m.addAction(_("tags"), self.to_tags)
         self.narrow_menu(m)
@@ -2288,12 +3056,105 @@ class Main(QtWidgets.QMainWindow):
         if self.current is not None and not self.store.is_book(self.current):
             m.addSeparator()
             nid = self.current
+            m.addAction(_("insert a picture…"), self.insert_picture_file)
+            m.addAction(_("insert a drawing"), lambda: self.draw(None, None))
             self.tags_menu(m, nid)
             m.addAction(_("delete this note"), lambda: self.delete_note(nid))
         m.addSeparator()
         m.addAction(_(THEME_NAMES[next_theme(self.theme)]), self.toggle_theme)
         m.addAction(_("settings"), self.setup)
         m.exec_(self.more.mapToGlobal(QtCore.QPoint(self.more.width() - m.sizeHint().width(), self.more.height())))
+
+    # ---- pictures and drawings (docs/PICTURES.md) ----------------------------------------
+
+    def insert_picture_file(self):
+        if self.editor.isReadOnly():
+            return
+        path, _f = QtWidgets.QFileDialog.getOpenFileName(self, _("insert a picture…"), os.path.expanduser("~"),
+                                                         _("pictures") + " (*.png *.jpg *.jpeg *.webp *.gif *.bmp)")
+        if path:
+            self.insert_picture_image(read_image_file(path))
+
+    def insert_picture_image(self, img):
+        """An image into the open note at the cursor, as a picture file of its own."""
+        data = picture_from_image(img)
+        if data is None or self.editor.isReadOnly():
+            return
+        name = new_picture_name("picture")
+        self.store.save_picture(name, data)
+        self.editor.insert_picture(name)
+        self.editor.setFocus()
+
+    def new_drawing(self):
+        """A note that starts as a drawing."""
+        self.finish_drawing()
+        self.leave_note()
+        self.draw(None, None, new_note=True)
+
+    def draw(self, _cursor, name, new_note=False):
+        """The drawing page: on a drawing of the open note (name), a new one into it at the cursor
+        (name None), or a new note (new_note)."""
+        if self.drawing is not None:
+            return
+        if not new_note and self.editor.isReadOnly():
+            return
+        self.flush()
+        img = QtGui.QImage(self.store.picture_path(name)) if name and self.store.has_picture(name) else None
+        if name and img is None:
+            return                      # still on its way: nothing to draw on yet
+        self.drawing = (None if new_note else self.current, name, new_note)
+        self.draw_page.sheet.start(img)
+        self.draw_page.tool(False)
+        self.stack.setCurrentWidget(self.draw_page)
+        self.draw_page.sheet.setFocus()
+
+    def finish_drawing(self):
+        """Leaving the drawing page: what was drawn is saved as a new file, its line in the note."""
+        if self.drawing is None:
+            return
+        nid, old, new_note = self.drawing
+        self.drawing = None
+        sheet = self.draw_page.sheet
+        self.stack.setCurrentIndex(0)
+        if not sheet.changed():
+            self.editor.setFocus()
+            return
+        name = new_picture_name("drawing")
+        self.store.save_picture(name, sheet.png())
+        if new_note:
+            inside = self.place if self.cfg.get("folders") and self.place not in (None, FOLDERS, BOOKS_FOLDER) else ""
+            if self.place in (FOLDERS, BOOKS_FOLDER):
+                self.place = None
+            self.tags_page, self.tag_filter = False, []
+            self.open_note(self.store.create(picture_line(name), folder=inside))
+            self.sync()
+            return
+        if nid != self.current:
+            # the note is no longer the one open (should not happen): the drawing goes at its end
+            text = self.store.text(nid)
+            self.store.save(nid, text.rstrip("\n") + "\n" + picture_line(name))
+        else:
+            ic = None
+            if old:
+                b = self.editor.document().begin()
+                while b.isValid() and ic is None:
+                    it = b.begin()
+                    while not it.atEnd():
+                        f = it.fragment()
+                        if f.isValid() and f.charFormat().isImageFormat() and f.charFormat().toImageFormat().name() == "pic:" + old:
+                            ic = QtGui.QTextCursor(self.editor.document())
+                            ic.setPosition(f.position())
+                            ic.setPosition(f.position() + 1, QtGui.QTextCursor.KeepAnchor)
+                            break
+                        it += 1
+                    b = b.next()
+            if ic is not None:
+                self.editor.replace_image(ic, name)
+            else:
+                self.editor.insert_picture(name)
+            self.flush()
+        self.editor.setFocus()
+        self.sync()
 
     # ---- sync --------------------------------------------------------------------------
 
@@ -2335,6 +3196,7 @@ class Main(QtWidgets.QMainWindow):
 
     def synced(self, result):
         self.syncing = False
+        self.editor.refresh_images()      # a picture that was on its way may be here now
         up, down, deleted = result
         arrows = "".join(f" {n}{a}" for n, a in ((up, "↑"), (down, "↓"), (deleted, "−")) if n)
         self.last_status = _("synced %1", datetime.now().strftime("%H:%M")) + arrows
@@ -2391,6 +3253,7 @@ class Main(QtWidgets.QMainWindow):
         super().changeEvent(e)
 
     def closeEvent(self, e):
+        self.finish_drawing()
         self.leave_note()
         save_config(self.cfg)
         for thread, _w in list(self.threads):

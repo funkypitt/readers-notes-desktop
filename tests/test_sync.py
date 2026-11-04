@@ -5,6 +5,7 @@
 import os
 import sys
 import tempfile
+import time
 from urllib.parse import unquote
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -17,6 +18,7 @@ class Server:
 
     def __init__(self):
         self.files, self.dirs, self.n = {}, set(), 0
+        self.mtime = {}          # url → last-modified in ms (0: the server does not say)
 
     def client(self, *_args, **_kw):
         return FakeDav(self)
@@ -35,7 +37,7 @@ class FakeDav:
     def list(self, url):
         out = [{"name": unquote(d[len(url):].rstrip("/")), "dir": True, "etag": None, "modified": 0}
                for d in self.s.dirs if d.startswith(url) and d != url and "/" not in d[len(url):].rstrip("/")]
-        out += [{"name": unquote(u[len(url):]), "dir": False, "etag": e, "modified": 0}
+        out += [{"name": unquote(u[len(url):]), "dir": False, "etag": e, "modified": self.s.mtime.get(u, 0)}
                 for u, (_t, e) in self.s.files.items() if u.startswith(url) and "/" not in u[len(url):]]
         return out
 
@@ -46,6 +48,15 @@ class FakeDav:
         self.s.n += 1
         self.s.files[url] = (text, "e%d" % self.s.n)
         return self.s.files[url][1]
+
+    def get_bytes(self, url):
+        return self.s.files[url][0] if url in self.s.files else None
+
+    def put_bytes(self, url, data, content_type):
+        assert isinstance(data, bytes) and content_type.startswith("image/")
+        assert url.rsplit("/", 1)[0] + "/" in self.s.dirs, "PUT into a folder that was not made"
+        self.put(url, data)
+        self.s.mtime[url] = int(rn.time.time() * 1000)
 
     def delete(self, url):
         self.s.files.pop(url, None)
@@ -285,6 +296,137 @@ def test_with_folders_the_books_folder_is_not_one_of_them():
     again = rn.Store(os.path.dirname(store.index_file))
     assert again.folder_names() == ["Work"]
 
+
+
+# ---- pictures (docs/PICTURES.md) ---------------------------------------------------------
+
+PNG = b"\x89PNG\r\n\x1a\n fake drawing"
+
+
+def pictures_url():
+    return rn.folder_url(cfg()) + ".pictures/"
+
+
+def note_with_picture(store, name="drawing-20261104-093012-a3f9.png", data=PNG, title="Plan"):
+    store.save_picture(name, data)
+    return store.create(title + "\n" + rn.picture_line(name) + "\nafter")
+
+
+def test_picture_line_rule():
+    assert rn.picture_of_line(" ![](.pictures/drawing-20261104-093012-a3f9.png) ") == "drawing-20261104-093012-a3f9.png"
+    assert rn.picture_of_line("![a cat](.pictures/x.JPG)") == "x.JPG"
+    for no in ("![](pictures/x.png)", "![](.pictures/../x.png)", "![](.pictures/x.gif)", "text ![](.pictures/x.png)", "![](.pictures/.x.png)"):
+        assert rn.picture_of_line(no) is None, no
+    text = "![](.pictures/a.png)\n\nTitle\n![](.pictures/b.jpg)\nmore"
+    assert rn.title_of(text) == "Title" and rn.file_name_of(text) == "Title.txt"
+    assert rn.pictures_of(text) == ["a.png", "b.jpg"]
+    assert rn.plain_text(text) == "\nTitle\nmore"
+    assert rn.file_name_of("![](.pictures/a.png)") == "untitled.txt"
+    n = rn.new_picture_name("drawing")
+    assert rn.picture_of_line(rn.picture_line(n)) == n and n.endswith(".png") and rn.picture_kind(n) == "drawing"
+    assert rn.new_picture_name("picture").endswith(".jpg")
+
+
+def test_picture_preview_skips_the_line():
+    _server, store = setup(())
+    nid = store.create("Plan\n![](.pictures/a.png)\nthe second line")
+    assert store.preview(nid) == "the second line"
+
+
+def test_a_picture_goes_up_with_its_note():
+    server, store = setup(())
+    note_with_picture(store)
+    up, _down, _del = rn.sync_run(store, cfg())
+    assert up == 2      # the note and its picture
+    assert server.files[pictures_url() + "drawing-20261104-093012-a3f9.png"][0] == PNG
+    assert rn.sync_run(store, cfg()) == (0, 0, 0)     # nothing twice
+
+
+def test_no_pictures_no_folder():
+    server, store = setup()
+    rn.sync_run(store, cfg())
+    assert pictures_url() not in server.dirs
+
+
+def test_a_picture_comes_down_to_another_computer():
+    server, store = setup(())
+    note_with_picture(store)
+    rn.sync_run(store, cfg())
+    other = rn.Store(tempfile.mkdtemp(prefix="notes-test-"))
+    _up, down, _d = rn.sync_run(other, cfg())
+    assert down == 2 and other.picture_bytes("drawing-20261104-093012-a3f9.png") == PNG
+
+
+def test_a_picture_not_sent_yet_is_no_error():
+    server, store = setup(())
+    store.create("Plan\n" + rn.picture_line("picture-20261104-093012-0000.jpg"))   # its file is elsewhere
+    server.dirs.add(rn.folder_url(cfg()))
+    server.dirs.add(pictures_url())
+    assert rn.sync_run(store, cfg()) == (1, 0, 0)
+    assert not store.has_picture("picture-20261104-093012-0000.jpg")
+    FakeDav(server).put_bytes(pictures_url() + "picture-20261104-093012-0000.jpg", b"jpeg", "image/jpeg")
+    assert rn.sync_run(store, cfg()) == (0, 1, 0)
+    assert store.picture_bytes("picture-20261104-093012-0000.jpg") == b"jpeg"
+
+
+def test_a_picture_nobody_holds_leaves_the_server_after_two_days():
+    server, store = setup(())
+    nid = note_with_picture(store)
+    rn.sync_run(store, cfg())
+    url = pictures_url() + "drawing-20261104-093012-a3f9.png"
+    store.save(nid, "Plan\nno more picture")
+    rn.sync_run(store, cfg())
+    assert url in server.files                    # still young: another device may be on its way
+    server.mtime[url] -= 3 * 24 * 3600 * 1000
+    rn.sync_run(store, cfg())
+    assert url not in server.files
+
+
+def test_a_picture_without_a_date_is_kept():
+    server, store = setup(())
+    nid = note_with_picture(store)
+    rn.sync_run(store, cfg())
+    url = pictures_url() + "drawing-20261104-093012-a3f9.png"
+    server.mtime[url] = 0
+    store.save(nid, "Plan")
+    rn.sync_run(store, cfg())
+    assert url in server.files
+
+
+def test_a_picture_removed_there_is_sent_again():
+    server, store = setup(())
+    note_with_picture(store)
+    rn.sync_run(store, cfg())
+    url = pictures_url() + "drawing-20261104-093012-a3f9.png"
+    del server.files[url]
+    assert rn.sync_run(store, cfg()) == (1, 0, 0)
+    assert server.files[url][0] == PNG
+
+
+def test_a_picture_failure_does_not_fail_the_notes():
+    server, store = setup(())
+    note_with_picture(store)
+    real = FakeDav.put_bytes
+    FakeDav.put_bytes = lambda *a, **k: (_ for _ in ()).throw(rn.WebDavError("refused"))
+    try:
+        assert rn.sync_run(store, cfg()) == (1, 0, 0)
+    finally:
+        FakeDav.put_bytes = real
+    assert rn.sync_run(store, cfg()) == (1, 0, 0)    # next time it goes
+
+
+def test_unused_pictures_here_go_after_two_days():
+    _server, store = setup(())
+    nid = note_with_picture(store)
+    store.save_picture("picture-20261101-000000-beef.jpg", b"old")
+    old = time.time() - 3 * 24 * 3600
+    for n in ("picture-20261101-000000-beef.jpg", "drawing-20261104-093012-a3f9.png"):
+        os.utime(store.picture_path(n), (old, old))
+    store.save_picture("picture-20261104-000000-cafe.jpg", b"new")     # young
+    assert store.forget_unused_pictures() == 1
+    assert store.local_pictures() == {"drawing-20261104-093012-a3f9.png", "picture-20261104-000000-cafe.jpg"}
+    store.delete(nid)
+    assert store.forget_unused_pictures() == 1
 
 if __name__ == "__main__":
     failed = 0
