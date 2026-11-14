@@ -5,7 +5,6 @@ MIT licence."""
 
 import collections
 import json
-import locale
 import os
 import random
 import re
@@ -17,11 +16,20 @@ from datetime import datetime, date, timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote, unquote, urljoin, urlparse
 
+# The certificates the system trusts (the macOS Keychain, the Windows store, a company's own
+# authority added there), not only the list that comes with requests. Before requests is imported,
+# since it prepares its TLS context at import. Without truststore (an older Linux), as before.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-notes"
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 
 
 def _app_dirs():
@@ -192,6 +200,7 @@ _TR = {
   "yesterday": "hier",
   "wrong username or password": "identifiant ou mot de passe incorrect",
   "cannot reach the server": "serveur injoignable",
+  "the server's certificate is not trusted — check the address, or trust its certificate on this computer": "le certificat du serveur n'est pas reconnu — vérifiez l'adresse, ou faites confiance à son certificat sur cet ordinateur",
   "not a WebDAV folder at this address": "pas de dossier WebDAV à cette adresse",
   "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Un dossier WebDAV garde les notes à jour sur vos autres appareils. kDrive : serveur https://ID.connect.kdrive.infomaniak.com (l'ID est le nombre dans l'adresse web de kDrive), votre identifiant Infomaniak et un mot de passe d'application si la double authentification est active. Nextcloud et tout serveur WebDAV fonctionnent de la même façon.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · développé avec Claude Code",
@@ -272,6 +281,7 @@ _TR = {
   "yesterday": "gestern",
   "wrong username or password": "falscher Benutzername oder falsches Passwort",
   "cannot reach the server": "Server nicht erreichbar",
+  "the server's certificate is not trusted — check the address, or trust its certificate on this computer": "das Zertifikat des Servers ist nicht vertrauenswürdig — prüfen Sie die Adresse oder vertrauen Sie seinem Zertifikat auf diesem Computer",
   "not a WebDAV folder at this address": "kein WebDAV-Ordner unter dieser Adresse",
   "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Ein WebDAV-Ordner hält die Notizen auf allen Geräten gleich. kDrive: Server https://ID.connect.kdrive.infomaniak.com (die ID ist die Zahl in der kDrive-Webadresse), Ihr Infomaniak-Login und bei Zwei-Faktor-Anmeldung ein App-Passwort. Nextcloud und jeder WebDAV-Server funktionieren genauso.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · entwickelt mit Claude Code",
@@ -352,6 +362,7 @@ _TR = {
   "yesterday": "ayer",
   "wrong username or password": "usuario o contraseña incorrectos",
   "cannot reach the server": "no se puede contactar con el servidor",
+  "the server's certificate is not trusted — check the address, or trust its certificate on this computer": "el certificado del servidor no es de confianza — compruebe la dirección o confíe en su certificado en este ordenador",
   "not a WebDAV folder at this address": "no hay una carpeta WebDAV en esta dirección",
   "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Una carpeta WebDAV mantiene las notas al día en tus otros dispositivos. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (el ID es el número de la dirección web de kDrive), tu usuario de Infomaniak y una contraseña de aplicación si tienes la verificación en dos pasos. Nextcloud y cualquier servidor WebDAV funcionan igual.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · desarrollado con Claude Code",
@@ -432,6 +443,7 @@ _TR = {
   "yesterday": "ontem",
   "wrong username or password": "utilizador ou palavra-passe incorretos",
   "cannot reach the server": "servidor inacessível",
+  "the server's certificate is not trusted — check the address, or trust its certificate on this computer": "o certificado do servidor não é de confiança — verifique o endereço ou confie no certificado neste computador",
   "not a WebDAV folder at this address": "nenhuma pasta WebDAV neste endereço",
   "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Uma pasta WebDAV mantém as notas em dia nos seus outros aparelhos. kDrive: servidor https://ID.connect.kdrive.infomaniak.com (o ID é o número no endereço web do kDrive), o seu utilizador Infomaniak e uma palavra-passe de aplicação se tiver a verificação em dois passos. O Nextcloud e qualquer servidor WebDAV funcionam da mesma forma.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · desenvolvido com Claude Code",
@@ -512,6 +524,7 @@ _TR = {
   "yesterday": "вчера",
   "wrong username or password": "неверное имя пользователя или пароль",
   "cannot reach the server": "сервер недоступен",
+  "the server's certificate is not trusted — check the address, or trust its certificate on this computer": "сертификат сервера не считается доверенным — проверьте адрес или добавьте его сертификат в доверенные на этом компьютере",
   "not a WebDAV folder at this address": "по этому адресу нет папки WebDAV",
   "A WebDAV folder keeps the notes in step with your other devices. kDrive: server https://ID.connect.kdrive.infomaniak.com (the ID is the number in the kDrive web address), your Infomaniak login, and an application password if two-factor authentication is on. Nextcloud and any WebDAV server work the same way.": "Папка WebDAV держит заметки в одном состоянии на всех устройствах. kDrive: сервер https://ID.connect.kdrive.infomaniak.com (ID — число в веб-адресе kDrive), ваш логин Infomaniak и пароль приложения при двухфакторной аутентификации. Nextcloud и любой WebDAV-сервер работают так же.",
   "Pierre Gallaz · developed with Claude Code": "Pierre Gallaz · разработано с Claude Code",
@@ -532,7 +545,10 @@ def _lang():
         if v:
             return v[:2].lower()
     try:                    # Windows, and macOS opened from the Finder: no LANG at all
-        return QtCore.QLocale.system().name()[:2].lower()
+        # the first of the system's preferred languages (on a Mac, System Settings › Language),
+        # not the region's format, which can be French for an English interface
+        system = QtCore.QLocale.system()
+        return ((system.uiLanguages() or [""])[0] or system.name())[:2].lower()
     except Exception:
         return "en"
 
@@ -545,6 +561,11 @@ def _(key, *args):
     for i, a in enumerate(args):
         s = s.replace("%" + str(i + 1), str(a))
     return s
+
+
+def keys_text(s):
+    """A shortcut named in a sentence as the keyboard shows it: on a Mac, Qt's Ctrl is the ⌘ key."""
+    return s.replace("Ctrl+", "⌘").replace("Strg+", "⌘") if sys.platform == "darwin" else s
 
 
 # ------------------------------------------------------------------------------------------
@@ -1120,6 +1141,8 @@ class WebDav:
             h["Content-Type"] = content_type
         try:
             r = self.s.request(method, url, data=body.encode("utf-8") if isinstance(body, str) else body, headers=h, timeout=self.timeout)
+        except requests.exceptions.SSLError:     # before the rest: it is one of the connection errors
+            raise WebDavError(_("the server's certificate is not trusted — check the address, or trust its certificate on this computer"))
         except requests.RequestException:
             raise WebDavError(_("cannot reach the server"))
         if r.status_code == 401:
@@ -1731,7 +1754,10 @@ def when_label(millis):
         return d.strftime("%H:%M")
     if d.date() == today - timedelta(days=1):
         return _("yesterday")
-    return f"{d.day} {d.strftime('%b' if d.year == today.year else '%b %Y')}".lower()
+    # The month in the interface's language, from Qt: the C library's would be English on a Mac
+    # opened from the Finder (no LANG), and could differ from the interface anywhere else.
+    month = QtCore.QLocale(_LANG if _LANG in _TR else "en").monthName(d.month, QtCore.QLocale.ShortFormat)
+    return (f"{d.day} {month}" if d.year == today.year else f"{d.day} {month} {d.year}").lower()
 
 
 # ------------------------------------------------------------------------------------------
@@ -2653,7 +2679,7 @@ class Main(QtWidgets.QMainWindow):
         self.status.clicked.connect(lambda: self.sync() if self.configured() else self.setup())
         bottom.addWidget(self.status, 1)
         self.gear = Clickable("⚙", "dim")
-        self.gear.setToolTip(_("settings (Ctrl+,)"))
+        self.gear.setToolTip(keys_text(_("settings (Ctrl+,)")))
         self.gear.clicked.connect(self.setup)
         bottom.addWidget(self.gear, 0)
         left.addLayout(bottom)
@@ -3398,7 +3424,7 @@ class Main(QtWidgets.QMainWindow):
 
     def update_status(self):
         if not self.configured():
-            self.status.setText(_("on this computer only — Ctrl+, to set up a WebDAV folder"))
+            self.status.setText(keys_text(_("on this computer only — Ctrl+, to set up a WebDAV folder")))
         else:
             self.status.setText(getattr(self, "last_status", ""))
         self.status.setToolTip(self.status.text())
@@ -3492,10 +3518,6 @@ def load_bundled_fonts():
 
 def main():
     credentials_cli(sys.argv)
-    try:
-        locale.setlocale(locale.LC_TIME, "")
-    except locale.Error:
-        pass
     # Sizes in the layout are pixels and text sizes are points: without this, a scaled screen
     # (125 %, 150 %, 200 %) grows the text and not the boxes around it.
     if hasattr(QtCore.Qt, "HighDpiScaleFactorRoundingPolicy"):

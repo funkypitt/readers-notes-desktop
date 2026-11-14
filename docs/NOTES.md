@@ -155,3 +155,15 @@ file no note has held for two days. The phone follows the same rules: [PICTURES.
 The drawing page: pen, eraser, undo (Ctrl+Z), and « done » or Esc to go back — leaving saves.
 A graphics tablet's pressure sets the width; its eraser end, or a side button held, erases; with
 the mouse, the right button erases.
+
+## 1.9.1 (2026-11-14): the Mac opened from the Finder
+
+A Mac app opened from the Finder has no `LANG`: the interface already asked Qt for the language
+(now the first of the system's preferred languages, not the region's format), but the dates went
+through the C library, which then speaks English. `when_label` takes the month from
+`QLocale` in the interface's language; « 3 févr. », « 24 déc. 2025 », as before in lower case.
+`truststore`, when installed (the macOS and Windows builds carry it), makes requests check
+certificates with the system: a company's or a home server's authority trusted in the Keychain
+is trusted here too. A certificate still refused says so instead of « cannot reach the server ».
+The hints name ⌘ on a Mac. The build writes the version and the oldest macOS its binaries start
+on into the Info.plist (`packaging/macos-info.py`). Tests: `tests/test_macos.py`.

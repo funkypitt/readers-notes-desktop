@@ -4,8 +4,10 @@
 # Actions tab (the binaries are then kept as artifacts for a few days). The .deb and the PKGBUILD
 # stay where they are: this workflow only adds the two desktops that cannot build themselves here.
 #
-# Neither binary is signed: Windows shows a SmartScreen warning, macOS says the app "cannot be
-# opened" until it is opened once with a right click. The README says so to the reader.
+# Neither binary is signed: Windows shows a SmartScreen warning; macOS refuses the app the first
+# time, then lets it open from System Settings › Privacy & Security › Open Anyway (macOS 15 and
+# later; a right click › Open on macOS 14), or after
+# `xattr -dr com.apple.quarantine "/Applications/Readers Notes.app"`. The README says so to the reader.
 
 name: Windows and macOS builds
 
@@ -45,11 +47,11 @@ jobs:
         shell: bash
         run: echo "VERSION=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' readers_notes.py)" >> "$GITHUB_ENV"
 
-      - name: Install PyQt5, requests and PyInstaller
+      - name: Install PyQt5, requests, truststore and PyInstaller
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install "PyQt5==5.15.11" requests pyinstaller
+          pip install "PyQt5==5.15.11" requests truststore pyinstaller
 
       # ---------------------------------------------------------------- Windows: one .exe
       - name: Build the .exe
@@ -86,6 +88,9 @@ jobs:
             --add-data "packaging/readers-notes.png:." \
             --add-data "packaging/fonts:fonts" \
             readers_notes.py
+          # the version and the oldest macOS it starts on, in the Info.plist, before the signature
+          python packaging/macos-info.py "dist/Readers Notes.app" "$VERSION"
+          plutil -p "dist/Readers Notes.app/Contents/Info.plist"
           # Ad hoc signature: on Apple Silicon an unsigned binary does not start at all.
           codesign --force --deep --sign - "dist/Readers Notes.app"
           codesign --verify --deep --strict "dist/Readers Notes.app"

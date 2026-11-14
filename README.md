@@ -13,13 +13,14 @@ desktop twin. No formatting, no account with the app.
 - It syncs when the window opens, every two minutes, 20 seconds after you stop typing, when you change note or window, on quitting, and on F5. The status line says what happened.
 - A note changed on both sides keeps the server's text as a second note ("… (server copy)"). Nothing is overwritten without a copy.
 - A book's highlights, written by Reader's Books into the `Reader's Books` subfolder of the notes folder, show here as notes to read and copy from, under « books » when the notes are filed in folders. They follow the server and are never changed from here.
-- Without a server the notes stay on this computer: `~/.local/share/readers-notes/` on Linux, settings in `~/.config/readers-notes/config.json`, readable by you only.
+- Without a server the notes stay on this computer: `~/.local/share/readers-notes/` on Linux, settings in `~/.config/readers-notes/config.json`; on macOS both in `~/Library/Application Support/readers-notes/`; readable by you only.
 - A new computer: *export credentials…* writes a JSON file that Reader's Calendar, Tasks and Notes share; *import credentials…* reads it back. It holds passwords in clear: delete it once imported.
 - Tags: a word with # in front, anywhere in a note (`#work`), is a tag. ⋯ › **tags** lists them with their counts and shows the notes carrying one tag or several; a note's right click or ⋯ › **tags…** adds or removes them. Plain text, so they travel with the note to the phone.
 - Pictures and drawings: ⋯ or a right click › **insert a picture…**, or paste or drop an image, puts it on its own line in the note; **✎ drawing** under the list starts a note with a drawing, ⋯ › **insert a drawing** adds one at the cursor. A drawing takes a pen's pressure, its eraser end erases; double-click a drawing to draw on it again. In the `.txt` a picture is one line, `![](.pictures/<name>)`, its file in the `.pictures` subfolder: see [docs/PICTURES.md](docs/PICTURES.md).
 - Export as PDF: a note's ⋯ or right click › **export as PDF…** writes it as A4 pages — its title, its text and its pictures in place, page numbers at the foot — in black on white, to the file you choose (your Documents folder first, named `readers-notes-<title>.pdf`).
 - Ctrl+T flips white on black / black on white; Ctrl+= and Ctrl+- change the text size.
 - English, French, German, Spanish, Portuguese and Russian, following the system language.
+- 1.9.1, on macOS: the dates in the interface's language when the app is opened from the Finder, ⌘ instead of Ctrl in the hints, the certificates the Keychain trusts (a company's own authority, a server set up at home), and a certificate the computer does not trust is said so, not « cannot reach the server ».
 
 More detail: [docs/NOTES.md](docs/NOTES.md).
 
@@ -27,13 +28,13 @@ More detail: [docs/NOTES.md](docs/NOTES.md).
 
 - Debian, Ubuntu, Pop!_OS: add the [apt repository](https://funkypitt.github.io/apt-repo/), then `sudo apt install readers-notes`. Or take the `.deb` from the [latest release](https://github.com/funkypitt/readers-notes-desktop/releases/latest): `sudo apt install ./readers-notes_*_all.deb`.
 - Arch, Manjaro: `git clone https://github.com/funkypitt/readers-notes-desktop && cd readers-notes-desktop/packaging && makepkg -si`.
-- Windows (`.exe`) and macOS (`.dmg`, `apple-silicon` or `intel`): from the latest release. They are unsigned: on Windows *More info* › *Run anyway*, on macOS right click on the app › *Open* the first time.
+- Windows (`.exe`) and macOS (`.dmg`, `apple-silicon` or `intel`): from the latest release. They are unsigned: on Windows *More info* › *Run anyway*. On macOS the first opening is refused; then System Settings › *Privacy & Security* › *Open Anyway* (macOS 15 and later; on macOS 14, right click on the app › *Open*), or in a terminal `xattr -dr com.apple.quarantine "/Applications/Readers Notes.app"`.
 - Anywhere else: `python3 readers_notes.py` with PyQt5 and requests installed.
 
 ## Build
 
 `packaging/build-deb.sh` builds the .deb. The Windows and macOS binaries are built by GitHub Actions
-at every `v*` tag. Single file, PyQt5 + requests, no WebDAV library.
+at every `v*` tag. Single file, PyQt5 + requests (and truststore when present, for the system's certificates), no WebDAV library.
 
 ## Crédits / Credits
 
